@@ -53,18 +53,18 @@
                                 Dashboard
                             </x-nav-link>
                             
-                            <x-nav-link :href="route('kasir')" :active="request()->routeIs('kasir')">
-                                <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                                </svg>
-                                Kasir
-                            </x-nav-link>
-                            
                             <x-nav-link :href="route('products.index')" :active="request()->routeIs('products.*')">
                                 <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                                 </svg>
                                 Produk
+                            </x-nav-link>
+
+                            <x-nav-link :href="route('materials.index')" :active="request()->routeIs('materials.*')">
+                                <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                                </svg>
+                                Bahan
                             </x-nav-link>
                             
                             <x-nav-link :href="route('sales.index')" :active="request()->routeIs('sales.*')">
@@ -155,6 +155,7 @@
                     <x-mobile-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">Dashboard</x-mobile-nav-link>
                     <x-mobile-nav-link :href="route('kasir')" :active="request()->routeIs('kasir')">Kasir</x-mobile-nav-link>
                     <x-mobile-nav-link :href="route('products.index')" :active="request()->routeIs('products.*')">Produk</x-mobile-nav-link>
+                    <x-mobile-nav-link :href="route('materials.index')" :active="request()->routeIs('materials.*')">Bahan</x-mobile-nav-link>
                     <x-mobile-nav-link :href="route('sales.index')" :active="request()->routeIs('sales.*')">Penjualan</x-mobile-nav-link>
                     @if(auth()->user()->canManageUsers())
                     <x-mobile-nav-link :href="route('categories.index')" :active="request()->routeIs('categories.*')">Kategori</x-mobile-nav-link>

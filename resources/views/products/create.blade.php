@@ -117,6 +117,64 @@
                     @enderror
                 </div>
 
+                <!-- materials -->
+                <div class="md:col-span-2 space-y-4" x-data="{ 
+                    ingredients: [],
+                    addIngredient() {
+                        this.ingredients.push({ material_id: '', quantity: '' });
+                    },
+                    removeIngredient(index) {
+                        this.ingredients.splice(index, 1);
+                    }
+                }">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Komposisi Bahan (Resep / Takaran)</label>
+                        <button type="button" @click="addIngredient()" class="text-sm text-teal-600 hover:text-teal-500 font-medium flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            Tambah Bahan
+                        </button>
+                    </div>
+
+                    <div class="space-y-3">
+                        <template x-for="(ingredient, index) in ingredients" :key="index">
+                            <div class="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                                <div class="flex-1">
+                                    <select :name="'materials[' + ingredient.material_id + '][quantity]'" 
+                                        x-model="ingredient.material_id"
+                                        required
+                                        class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm">
+                                        <option value="">Pilih Bahan</option>
+                                        @foreach($materials as $material)
+                                        <option value="{{ $material->id }}">{{ $material->name }} ({{ $material->unit }})</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="w-32">
+                                    <div class="relative">
+                                        <input type="number" step="0.01" 
+                                            :name="'materials[' + ingredient.material_id + '][quantity]'"
+                                            x-model="ingredient.quantity"
+                                            required min="0.01"
+                                            placeholder="Takaran"
+                                            class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm pr-10">
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500" x-text="document.querySelector('select[x-model=\'ingredient.material_id\'] option[value=\'' + ingredient.material_id + '\']')?.innerText.split('(').pop().replace(')', '') || ''"></span>
+                                    </div>
+                                </div>
+                                <button type="button" @click="removeIngredient(index)" class="text-red-500 hover:text-red-600 p-1">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </template>
+                        <div x-show="ingredients.length === 0" class="text-center py-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-gray-500 text-sm">
+                            Belum ada bahan tambahan. Klik "Tambah Bahan" jika produk ini menggunakan bahan baku.
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Image -->
                 <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Gambar Produk</label>

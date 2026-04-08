@@ -50,9 +50,17 @@ class KasirController extends Controller
             foreach ($request->items as $item) {
                 $product = Product::findOrFail($item['product_id']);
 
-                // Check stock
+                // Check product stock
                 if ($product->stock < $item['quantity']) {
-                    throw new \Exception("Stok {$product->name} tidak mencukupi! Stok tersedia: {$product->stock}");
+                    throw new \Exception("Stok produk {$product->name} tidak mencukupi! Stok tersedia: {$product->stock}");
+                }
+
+                // Check material stock (recipe)
+                foreach ($product->materials as $material) {
+                    $requiredAmount = $material->pivot->quantity * $item['quantity'];
+                    if ($material->stock < $requiredAmount) {
+                        throw new \Exception("Stok bahan {$material->name} tidak mencukupi untuk membuat {$item['quantity']} {$product->name}! Stok tersedia: {$material->stock} {$material->unit}, Dibutuhkan: {$requiredAmount} {$material->unit}");
+                    }
                 }
 
                 $price = $product->selling_price;
@@ -72,8 +80,13 @@ class KasirController extends Controller
                     'cost_price' => $costPrice,
                 ];
 
-                // Reduce stock
+                // Reduce product stock
                 $product->decrement('stock', $quantity);
+
+                // Reduce material stock
+                foreach ($product->materials as $material) {
+                    $material->decrement('stock', $material->pivot->quantity * $quantity);
+                }
             }
 
             $discountPercent = $request->discount_percent ?? 0;

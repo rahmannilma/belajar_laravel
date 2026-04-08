@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\Material;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -57,7 +58,8 @@ class ProductController extends Controller
     public function create()
     {
         $categories = Category::orderBy('name')->get();
-        return view('products.create', compact('categories'));
+        $materials = Material::orderBy('name')->get();
+        return view('products.create', compact('categories', 'materials'));
     }
 
     public function store(Request $request)
@@ -87,7 +89,19 @@ class ProductController extends Controller
             $data['sku'] = 'SKU-' . strtoupper(Str::random(8));
         }
 
-        Product::create($data);
+        $product = Product::create($data);
+
+        // Sync materials
+        if ($request->has('materials')) {
+            $syncData = [];
+            foreach ($request->materials as $materialId => $pivot) {
+                if (!empty($pivot['quantity']) && $pivot['quantity'] > 0) {
+                    $syncData[$materialId] = ['quantity' => $pivot['quantity']];
+                }
+            }
+            $product->materials()->sync($syncData);
+        }
+
 
         return redirect()->route('products.index')->with('success', 'Produk berhasil ditambahkan!');
     }
@@ -101,7 +115,9 @@ class ProductController extends Controller
     public function edit(Product $product)
     {
         $categories = Category::orderBy('name')->get();
-        return view('products.edit', compact('product', 'categories'));
+        $materials = Material::orderBy('name')->get();
+        $product->load('materials');
+        return view('products.edit', compact('product', 'categories', 'materials'));
     }
 
     public function update(Request $request, Product $product)
@@ -136,6 +152,20 @@ class ProductController extends Controller
         }
 
         $product->update($data);
+
+        // Sync materials
+        if ($request->has('materials')) {
+            $syncData = [];
+            foreach ($request->materials as $materialId => $pivot) {
+                if (!empty($pivot['quantity']) && $pivot['quantity'] > 0) {
+                    $syncData[$materialId] = ['quantity' => $pivot['quantity']];
+                }
+            }
+            $product->materials()->sync($syncData);
+        } else {
+            $product->materials()->detach();
+        }
+
 
         return redirect()->route('products.index')->with('success', 'Produk berhasil diperbarui!');
     }

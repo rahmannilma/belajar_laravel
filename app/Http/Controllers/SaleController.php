@@ -273,7 +273,13 @@ class SaleController extends Controller
 
         // Restore stock for each item
         foreach ($sale->items as $item) {
+            // Restore product stock
             $item->product->increment('stock', $item->quantity);
+
+            // Restore material stock
+            foreach ($item->product->materials as $material) {
+                $material->increment('stock', $material->pivot->quantity * $item->quantity);
+            }
         }
 
         $sale->items()->delete();

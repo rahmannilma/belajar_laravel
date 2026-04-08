@@ -5,6 +5,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\KasirController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -42,6 +43,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/products/{product}/adjust-stock', [ProductController::class, 'stockAdjustment'])->name('products.adjust-stock');
     Route::get('/products/{product}/barcode', [ProductController::class, 'printBarcode'])->name('products.barcode');
     Route::post('/products/print-barcodes', [ProductController::class, 'printBarcodes'])->name('products.print-barcodes');
+
+    // Materials (only owner can manage)
+    Route::resource('materials', MaterialController::class);
+    Route::post('/materials/{material}/adjust-stock', [MaterialController::class, 'adjustStock'])->name('materials.adjust-stock');
+
 
     // Categories (only owner can manage)
     Route::resource('categories', CategoryController::class)->except(['show']);
