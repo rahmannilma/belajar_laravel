@@ -24,13 +24,13 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Email atau password yang Anda masukkan salah.'],
             ]);
         }
 
-        if (!$user->is_active) {
+        if (! $user->is_active) {
             throw ValidationException::withMessages([
                 'email' => ['Akun Anda tidak aktif. Hubungi pemilik toko.'],
             ]);
@@ -38,6 +38,10 @@ class AuthController extends Controller
 
         Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
+
+        if ($user->isCashier()) {
+            return redirect()->route('kasir');
+        }
 
         return redirect()->intended(route('dashboard'));
     }
@@ -54,16 +58,16 @@ class AuthController extends Controller
     public function showRegisterForm()
     {
         // Only owner can register new users
-        if (!Auth::check() || !Auth::user()->isOwner()) {
+        if (! Auth::check() || ! Auth::user()->isOwner()) {
             abort(403, 'Hanya pemilik yang dapat mendaftarkan pengguna baru.');
         }
-        
+
         return view('auth.register');
     }
 
     public function register(Request $request)
     {
-        if (!Auth::check() || !Auth::user()->isOwner()) {
+        if (! Auth::check() || ! Auth::user()->isOwner()) {
             abort(403, 'Hanya pemilik yang dapat mendaftarkan pengguna baru.');
         }
 
@@ -94,7 +98,7 @@ class AuthController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . Auth::id(),
+            'email' => 'required|email|unique:users,email,'.Auth::id(),
             'current_password' => 'nullable|string|required_with:new_password',
             'new_password' => 'nullable|string|min:6|confirmed',
         ]);
@@ -103,7 +107,7 @@ class AuthController extends Controller
 
         // Validate current password if trying to change password
         if ($request->current_password) {
-            if (!Hash::check($request->current_password, $user->password)) {
+            if (! Hash::check($request->current_password, $user->password)) {
                 throw ValidationException::withMessages([
                     'current_password' => ['Password saat ini tidak benar.'],
                 ]);

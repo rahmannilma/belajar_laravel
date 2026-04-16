@@ -21,14 +21,10 @@
     </div>
 
     <!-- Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
             <p class="text-sm text-gray-500 dark:text-gray-400">Total Penjualan</p>
             <p class="text-2xl font-bold text-gray-900 dark:text-white">Rp {{ number_format($totalAmount, 0, ',', '.') }}</p>
-        </div>
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <p class="text-sm text-gray-500 dark:text-gray-400">Total Keuntungan</p>
-            <p class="text-2xl font-bold text-green-600 dark:text-green-400">Rp {{ number_format($totalProfit, 0, ',', '.') }}</p>
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
             <p class="text-sm text-gray-500 dark:text-gray-400">Jumlah Transaksi</p>
@@ -111,7 +107,6 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kasir</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Items</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Profit</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bayar</th>
                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aksi</th>
                     </tr>
@@ -128,7 +123,6 @@
                         <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{{ $sale->user->name }}</td>
                         <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{{ $sale->items->count() }} item</td>
                         <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">Rp {{ number_format($sale->total_amount, 0, ',', '.') }}</td>
-                        <td class="px-6 py-4 text-sm text-green-600 dark:text-green-400">Rp {{ number_format($sale->profit, 0, ',', '.') }}</td>
                         <td class="px-6 py-4">
                             <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-700">
                                 {{ $sale->payment_method_label }}
@@ -163,7 +157,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                        <td colspan="7" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                             <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                             </svg>

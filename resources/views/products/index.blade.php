@@ -66,7 +66,6 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kategori</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Harga Jual</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Stok</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Profit</th>
                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aksi</th>
                     </tr>
                 </thead>
@@ -100,7 +99,6 @@
                                 {{ $product->stock }}
                             </span>
                         </td>
-                        <td class="px-6 py-4 text-sm text-green-600 dark:text-green-400">Rp {{ number_format($product->profit, 0, ',', '.') }} ({{ round($product->profit_percent, 1) }}%)</td>
                         <td class="px-6 py-4 text-right">
                             <div class="flex items-center justify-end gap-2">
                                 <a href="{{ route('products.show', $product) }}" class="p-2 text-gray-400 hover:text-teal-500 transition-colors">

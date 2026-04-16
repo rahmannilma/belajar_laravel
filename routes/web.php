@@ -4,8 +4,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\KasirController;
-use App\Http\Controllers\ProductController;
 use App\Http\Controllers\MaterialController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -24,15 +24,25 @@ Route::middleware('guest')->group(function () {
 
 // Authenticated routes
 Route::middleware('auth')->group(function () {
+    // Home redirect based on role
+    Route::get('/', function () {
+        if (auth()->user()->isCashier()) {
+            return redirect()->route('kasir');
+        }
+
+        return redirect()->route('dashboard');
+    });
+
     // Logout
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/logout', function () {
         return redirect()->route('logout');
     });
 
-    // Dashboard
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/', [DashboardController::class, 'index']);
+    // Dashboard (owner only)
+    Route::middleware('role:owner')->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    });
 
     // Profile
     Route::get('/profile', [AuthController::class, 'profile'])->name('profile');
@@ -47,7 +57,6 @@ Route::middleware('auth')->group(function () {
     // Materials (only owner can manage)
     Route::resource('materials', MaterialController::class);
     Route::post('/materials/{material}/adjust-stock', [MaterialController::class, 'adjustStock'])->name('materials.adjust-stock');
-
 
     // Categories (only owner can manage)
     Route::resource('categories', CategoryController::class)->except(['show']);

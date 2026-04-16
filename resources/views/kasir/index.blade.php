@@ -143,7 +143,7 @@
 
             <!-- Discount -->
             <div class="px-4 pb-4 border-t border-gray-200 dark:border-gray-700 pt-4">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Diskon (%)</label>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Diskon</label>
                 <input type="number" x-model.number="discountPercent" @change="calculateTotals()" min="0" max="100" 
                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="0">
             </div>
@@ -155,12 +155,8 @@
                     <span class="font-medium text-gray-900 dark:text-white">Rp <span x-text="formatNumber(subtotal)"></span></span>
                 </div>
                 <div class="flex justify-between text-sm" x-show="discountPercent > 0">
-                    <span class="text-gray-500 dark:text-gray-400">Diskon (<span x-text="discountPercent"></span>%)</span>
+                    <span class="text-gray-500 dark:text-gray-400">Diskon</span>
                     <span class="text-red-500">- Rp <span x-text="formatNumber(discountAmount)"></span></span>
-                </div>
-                <div class="flex justify-between text-sm">
-                    <span class="text-gray-500 dark:text-gray-400">Pajak (11%)</span>
-                    <span class="text-gray-900 dark:text-white">Rp <span x-text="formatNumber(taxAmount)"></span></span>
                 </div>
                 <div class="flex justify-between text-lg font-bold border-t border-gray-200 dark:border-gray-700 pt-2">
                     <span class="text-gray-900 dark:text-white">Total</span>
@@ -244,10 +240,6 @@
                     <div class="flex justify-between text-sm" x-show="lastTransaction?.discount_amount > 0">
                         <span>Diskon</span>
                         <span class="text-red-500">- Rp <span x-text="formatNumber(lastTransaction?.discount_amount || 0)"></span></span>
-                    </div>
-                    <div class="flex justify-between text-sm">
-                        <span>Pajak (11%)</span>
-                        <span>Rp <span x-text="formatNumber(lastTransaction?.tax_amount || 0)"></span></span>
                     </div>
                     <div class="flex justify-between text-lg font-bold">
                         <span>Total</span>
@@ -393,9 +385,7 @@ function posSystem() {
         calculateTotals() {
             this.subtotal = this.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             this.discountAmount = this.subtotal * (this.discountPercent / 100);
-            const taxableAmount = this.subtotal - this.discountAmount;
-            this.taxAmount = taxableAmount * 0.11;
-            this.totalAmount = taxableAmount + this.taxAmount;
+            this.totalAmount = this.subtotal - this.discountAmount;
         },
 
         formatNumber(num) {

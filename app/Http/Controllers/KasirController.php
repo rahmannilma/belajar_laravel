@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\Sale;
-use App\Models\SaleItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -40,7 +39,7 @@ class KasirController extends Controller
         try {
             DB::beginTransaction();
 
-            $invoiceNumber = 'INV-' . date('Ymd') . '-' . strtoupper(Str::random(6));
+            $invoiceNumber = 'INV-'.date('Ymd').'-'.strtoupper(Str::random(6));
 
             // Calculate totals
             $subtotal = 0;
@@ -91,11 +90,8 @@ class KasirController extends Controller
 
             $discountPercent = $request->discount_percent ?? 0;
             $discountAmount = $subtotal * ($discountPercent / 100);
-            $taxableAmount = $subtotal - $discountAmount;
-            $taxPercent = 11;
-            $taxAmount = $taxableAmount * ($taxPercent / 100);
-            $totalAmount = $taxableAmount + $taxAmount;
-            $profit = $totalAmount - $totalCost - $discountAmount;
+            $totalAmount = $subtotal - $discountAmount;
+            $profit = $totalAmount - $totalCost;
 
             // Create sale
             $sale = Sale::create([
@@ -105,8 +101,8 @@ class KasirController extends Controller
                 'subtotal' => $subtotal,
                 'discount_percent' => $discountPercent,
                 'discount_amount' => $discountAmount,
-                'tax_percent' => $taxPercent,
-                'tax_amount' => $taxAmount,
+                'tax_percent' => 0,
+                'tax_amount' => 0,
                 'total_amount' => $totalAmount,
                 'total_cost' => $totalCost,
                 'profit' => $profit,
@@ -133,7 +129,8 @@ class KasirController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Transaction error: ' . $e->getMessage());
+            Log::error('Transaction error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -144,12 +141,14 @@ class KasirController extends Controller
     public function receipt(Sale $sale)
     {
         $sale->load('items', 'user');
+
         return view('kasir.receipt', compact('sale'));
     }
 
     public function printReceipt(Sale $sale)
     {
         $sale->load('items', 'user');
+
         return view('kasir.print-receipt', compact('sale'));
     }
 
@@ -177,7 +176,7 @@ class KasirController extends Controller
     // API: Get product details
     public function getProduct(Product $product)
     {
-        if (!$product->is_active) {
+        if (! $product->is_active) {
             return response()->json(['error' => 'Produk tidak aktif'], 404);
         }
 
@@ -204,12 +203,12 @@ class KasirController extends Controller
                 $query->whereHas('sale', function ($q) use ($date) {
                     $q->where('sale_date', '>=', $date);
                 });
-            }
+            },
         ], 'quantity')
-        ->having('sale_items_sum_quantity', '>', 0)
-        ->orderBy('sale_items_sum_quantity', 'desc')
-        ->limit(10)
-        ->get();
+            ->having('sale_items_sum_quantity', '>', 0)
+            ->orderBy('sale_items_sum_quantity', 'desc')
+            ->limit(10)
+            ->get();
 
         return response()->json($products);
     }
@@ -218,7 +217,7 @@ class KasirController extends Controller
     public function suggestions(Request $request)
     {
         $term = $request->get('q', '');
-        
+
         $products = Product::active()
             ->inStock()
             ->search($term)

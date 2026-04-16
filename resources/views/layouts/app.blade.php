@@ -35,7 +35,7 @@
                 <div class="flex justify-between h-16">
                     <div class="flex items-center">
                         <!-- Logo -->
-                        <a href="{{ route('dashboard') }}" class="flex items-center space-x-2">
+                        <a href="{{ auth()->user()->isCashier() ? route('kasir') : route('dashboard') }}" class="flex items-center space-x-2">
                             <div class="w-8 h-8 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-lg flex items-center justify-center">
                                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
@@ -46,12 +46,14 @@
 
                         <!-- Desktop Menu -->
                         <div class="hidden md:flex ml-10 space-x-1">
+                            @if(!auth()->user()->isCashier())
                             <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                                 <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
                                 </svg>
                                 Dashboard
                             </x-nav-link>
+                            @endif
                             
                             <x-nav-link :href="route('kasir')" :active="request()->routeIs('kasir')">
                                 <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -161,7 +163,9 @@
             <!-- Mobile Menu -->
             <div x-data="{ mobileOpen: false }" @toggle-menu.window="mobileOpen = !mobileOpen" class="md:hidden" x-show="mobileOpen" x-cloak>
                 <div class="px-2 pt-2 pb-3 space-y-1 border-t border-gray-200 dark:border-gray-700">
+                    @if(!auth()->user()->isCashier())
                     <x-mobile-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">Dashboard</x-mobile-nav-link>
+                    @endif
                     <x-mobile-nav-link :href="route('kasir')" :active="request()->routeIs('kasir')">Kasir</x-mobile-nav-link>
                     @if(auth()->user()->canManageProducts())
                     <x-mobile-nav-link :href="route('products.index')" :active="request()->routeIs('products.*')">Produk</x-mobile-nav-link>

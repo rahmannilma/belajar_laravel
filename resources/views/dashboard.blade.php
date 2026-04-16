@@ -20,14 +20,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         backgroundColor: 'rgba(20, 184, 166, 0.1)',
                         fill: true,
                         tension: 0.4
-                    },
-                    {
-                        label: 'Keuntungan',
-                        data: {!! json_encode(array_column($last7Days, 'profit')) !!},
-                        borderColor: 'rgb(6, 182, 212)',
-                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
-                        fill: true,
-                        tension: 0.4
                     }
                 ]
             },
@@ -99,7 +91,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 
     <!-- Today's Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <!-- Today's Sales -->
         <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
             <div class="flex items-center justify-between">
@@ -115,21 +107,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="w-12 h-12 bg-teal-100 dark:bg-teal-900/30 rounded-xl flex items-center justify-center">
                     <svg class="w-6 h-6 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                </div>
-            </div>
-        </div>
-
-        <!-- Today's Profit -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Keuntungan Hari Ini</p>
-                    <p class="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">Rp {{ number_format($todayProfit, 0, ',', '.') }}</p>
-                </div>
-                <div class="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
-                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
                     </svg>
                 </div>
             </div>
