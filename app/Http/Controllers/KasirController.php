@@ -53,7 +53,13 @@ class KasirController extends Controller
             })
             ->values();
 
-        $categories = \App\Models\Category::withCount('products')->get();
+        $categories = \App\Models\Category::whereHas('products', function ($query) use ($branchId) {
+            $query->whereHas('branchStocks', function ($q) use ($branchId) {
+                $q->where('branch_id', $branchId);
+            });
+        })->withCount('products')->get();
+
+        $hasAnyStock = \App\Models\ProductBranchStock::where('branch_id', $branchId)->exists();
 
         $recentSales = Sale::with('user')
             ->where('branch_id', $branchId)
@@ -62,7 +68,7 @@ class KasirController extends Controller
             ->limit(10)
             ->get();
 
-        return view('kasir.index', compact('products', 'categories', 'recentSales'));
+        return view('kasir.index', compact('products', 'categories', 'recentSales', 'hasAnyStock'));
     }
 
     public function store(Request $request)

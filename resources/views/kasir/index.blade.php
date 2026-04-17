@@ -34,6 +34,7 @@
         </div>
 
         <!-- Category Filter -->
+        @if($hasAnyStock && count($categories) > 0)
         <div class="mb-4 flex gap-2 overflow-x-auto pb-2">
             <button @click="selectedCategory = null" 
                 :class="selectedCategory === null ? 'bg-teal-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
@@ -48,6 +49,7 @@
             </button>
             @endforeach
         </div>
+        @endif
 
         <!-- Product Grid -->
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-3">
