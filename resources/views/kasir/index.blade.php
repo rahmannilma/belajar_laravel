@@ -53,12 +53,12 @@
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             <template x-for="product in filteredProducts" :key="product.id">
                 <button @click="addToCart(product)" 
-                    :disabled="product.stock === 0"
+                    :disabled="product.display_stock === 0"
                     class="relative p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-teal-500 dark:hover:border-teal-500 hover:shadow-md transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed">
                     <!-- Low Stock Warning -->
-                    <div x-show="product.stock <= product.min_stock && product.stock > 0" 
+                    <div x-show="product.display_stock <= product.min_stock && product.display_stock > 0" 
                         class="absolute top-2 right-2 w-2 h-2 bg-orange-500 rounded-full"></div>
-                    <div x-show="product.stock === 0" 
+                    <div x-show="product.display_stock === 0" 
                         class="absolute top-2 right-2 px-1.5 py-0.5 bg-red-500 text-white text-[10px] rounded">Habis</div>
                     
                     <div class="aspect-square mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
@@ -73,7 +73,7 @@
                     <div class="mt-2 flex items-baseline gap-1">
                         <span class="text-teal-600 dark:text-teal-400 font-bold" x-text="'Rp ' + formatNumber(product.selling_price)"></span>
                     </div>
-                    <p class="text-xs text-gray-400 mt-1">Stok: <span x-text="product.stock"></span></p>
+                    <p class="text-xs text-gray-400 mt-1">Stok: <span x-text="product.display_stock"></span></p>
                 </button>
             </template>
         </div>
@@ -206,6 +206,58 @@
                 </button>
             </div>
         </div>
+
+        <!-- Recent Transactions (Owner only) -->
+        @if(auth()->user()->isOwner() && $recentSales->count() > 0)
+        <div class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="font-semibold text-gray-900 dark:text-white">Transaksi Hari Ini</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead class="bg-gray-50 dark:bg-gray-700/50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Invoice</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Waktu</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Bayar</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        @foreach($recentSales as $sale)
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <td class="px-4 py-3 text-sm font-mono text-gray-900 dark:text-white">{{ $sale->invoice_number }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $sale->sale_date->format('H:i') }}</td>
+                            <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">Rp {{ number_format($sale->total_amount, 0, ',', '.') }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $sale->payment_method_label }}</td>
+                            <td class="px-4 py-3">
+                                @if($sale->status === 'cancelled')
+                                <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                                    Dibatalkan
+                                </span>
+                                @else
+                                <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                    Selesai
+                                </span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                @if($sale->status !== 'cancelled')
+                                <form action="{{ route('sales.cancel', $sale) }}" method="POST" class="inline" onsubmit="return confirm('Yakin ingin membatalkan transaksi ini?')">
+                                    @csrf
+                                    <button type="submit" class="text-xs text-red-500 hover:text-red-700">Batalkan</button>
+                                </form>
+                                @endif
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        @endif
     </div>
 
     <!-- Receipt Modal -->
@@ -323,7 +375,7 @@ function posSystem() {
             const existingItem = this.cartItems.find(item => item.product_id === product.id);
             
             if (existingItem) {
-                if (existingItem.quantity < product.stock) {
+                if (existingItem.quantity < product.display_stock) {
                     existingItem.quantity++;
                 } else {
                     alert('Stok tidak mencukupi!');
@@ -334,7 +386,7 @@ function posSystem() {
                     name: product.name,
                     price: parseFloat(product.selling_price),
                     quantity: 1,
-                    max_stock: product.stock
+                    max_stock: product.display_stock
                 });
             }
             

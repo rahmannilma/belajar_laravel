@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Material extends Model
 {
@@ -31,9 +32,27 @@ class Material extends Model
             ->withTimestamps();
     }
 
-    public function isLowStock(): bool
+    public function branchStocks(): HasMany
     {
-        return $this->stock <= $this->min_stock;
+        return $this->hasMany(MaterialBranchStock::class);
+    }
+
+    public function getStockForBranch(?int $branchId): ?float
+    {
+        if (! $branchId) {
+            return $this->stock;
+        }
+
+        $branchStock = $this->branchStocks()->where('branch_id', $branchId)->first();
+
+        return $branchStock?->stock ?? $this->stock;
+    }
+
+    public function isLowStock(?int $branchId = null): bool
+    {
+        $stock = $this->getStockForBranch($branchId);
+
+        return $stock <= $this->min_stock;
     }
 
     public function scopeLowStock($query)

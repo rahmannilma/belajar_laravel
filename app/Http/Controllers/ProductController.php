@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\Category;
-use App\Models\Product;
 use App\Models\Material;
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -15,25 +16,31 @@ class ProductController extends Controller
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
-            if (!auth()->user()->canManageProducts()) {
+            if (! auth()->user()->canManageProducts()) {
                 abort(403, 'Anda tidak memiliki izin untuk mengakses halaman ini.');
             }
+
             return $next($request);
         });
     }
 
     public function index(Request $request)
     {
-        $products = Product::with('category')
+        $products = Product::with('category', 'branchStocks.branch')
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('sku', 'like', "%{$search}%")
-                      ->orWhere('barcode', 'like', "%{$search}%");
+                        ->orWhere('sku', 'like', "%{$search}%")
+                        ->orWhere('barcode', 'like', "%{$search}%");
                 });
             })
             ->when($request->category, function ($query, $category) {
                 $query->where('category_id', $category);
+            })
+            ->when($request->branch, function ($query, $branch) {
+                $query->whereHas('branchStocks', function ($q) use ($branch) {
+                    $q->where('branch_id', $branch);
+                });
             })
             ->when($request->stock_status, function ($query, $status) {
                 if ($status === 'low') {
@@ -51,15 +58,18 @@ class ProductController extends Controller
             ->paginate(15);
 
         $categories = Category::orderBy('name')->get();
+        $branches = Branch::where('is_active', true)->orderBy('name')->get();
 
-        return view('products.index', compact('products', 'categories'));
+        return view('products.index', compact('products', 'categories', 'branches'));
     }
 
     public function create()
     {
         $categories = Category::orderBy('name')->get();
         $materials = Material::orderBy('name')->get();
-        return view('products.create', compact('categories', 'materials'));
+        $branches = Branch::where('is_active', true)->orderBy('name')->get();
+
+        return view('products.create', compact('categories', 'materials', 'branches'));
     }
 
     public function store(Request $request)
@@ -79,29 +89,36 @@ class ProductController extends Controller
         ]);
 
         $data = $request->except('image');
-        
+
         if ($request->hasFile('image')) {
             $data['image'] = $request->file('image')->store('products', 'public');
         }
 
         // Generate SKU if not provided
         if (empty($data['sku'])) {
-            $data['sku'] = 'SKU-' . strtoupper(Str::random(8));
+            $data['sku'] = 'SKU-'.strtoupper(Str::random(8));
         }
 
         $product = Product::create($data);
+
+        // Save branch stock if selected
+        if ($request->filled('branch_id')) {
+            $product->branchStocks()->create([
+                'branch_id' => $request->branch_id,
+                'stock' => $data['stock'],
+            ]);
+        }
 
         // Sync materials
         if ($request->has('materials')) {
             $syncData = [];
             foreach ($request->materials as $materialId => $pivot) {
-                if (!empty($pivot['quantity']) && $pivot['quantity'] > 0) {
+                if (! empty($pivot['quantity']) && $pivot['quantity'] > 0) {
                     $syncData[$materialId] = ['quantity' => $pivot['quantity']];
                 }
             }
             $product->materials()->sync($syncData);
         }
-
 
         return redirect()->route('products.index')->with('success', 'Produk berhasil ditambahkan!');
     }
@@ -109,6 +126,7 @@ class ProductController extends Controller
     public function show(Product $product)
     {
         $product->load('category', 'saleItems.sale');
+
         return view('products.show', compact('product'));
     }
 
@@ -117,6 +135,7 @@ class ProductController extends Controller
         $categories = Category::orderBy('name')->get();
         $materials = Material::orderBy('name')->get();
         $product->load('materials');
+
         return view('products.edit', compact('product', 'categories', 'materials'));
     }
 
@@ -137,7 +156,7 @@ class ProductController extends Controller
         ]);
 
         $data = $request->except('image');
-        
+
         if ($request->hasFile('image')) {
             // Delete old image if exists
             if ($product->image) {
@@ -148,7 +167,7 @@ class ProductController extends Controller
 
         // Generate SKU if not provided
         if (empty($data['sku'])) {
-            $data['sku'] = 'SKU-' . strtoupper(Str::random(8));
+            $data['sku'] = 'SKU-'.strtoupper(Str::random(8));
         }
 
         $product->update($data);
@@ -157,7 +176,7 @@ class ProductController extends Controller
         if ($request->has('materials')) {
             $syncData = [];
             foreach ($request->materials as $materialId => $pivot) {
-                if (!empty($pivot['quantity']) && $pivot['quantity'] > 0) {
+                if (! empty($pivot['quantity']) && $pivot['quantity'] > 0) {
                     $syncData[$materialId] = ['quantity' => $pivot['quantity']];
                 }
             }
@@ -165,7 +184,6 @@ class ProductController extends Controller
         } else {
             $product->materials()->detach();
         }
-
 
         return redirect()->route('products.index')->with('success', 'Produk berhasil diperbarui!');
     }
@@ -200,6 +218,7 @@ class ProductController extends Controller
         ]);
 
         $products = Product::whereIn('id', $request->products)->get();
+
         return view('products.barcode', compact('products'));
     }
 
@@ -225,11 +244,55 @@ class ProductController extends Controller
         return redirect()->route('products.index')->with('success', $message);
     }
 
+    public function branchStock(Request $request, Product $product)
+    {
+        $branches = Branch::where('is_active', true)->orderBy('name')->get();
+
+        if ($request->ajax()) {
+            return response()->json($product->branchStocks()->with('branch')->get());
+        }
+
+        return view('products.branch-stock', compact('product', 'branches'));
+    }
+
+    public function updateBranchStock(Request $request, Product $product)
+    {
+        $request->validate([
+            'branch_id' => 'required|exists:branches,id',
+            'stock' => 'required|integer|min:0',
+        ]);
+
+        $product->branchStocks()->updateOrCreate(
+            ['branch_id' => $request->branch_id],
+            ['stock' => $request->stock]
+        );
+
+        return back()->with('success', 'Stok cabang berhasil diperbarui!');
+    }
+
+    public function bulkBranchStock(Request $request, Product $product)
+    {
+        $request->validate([
+            'stocks' => 'required|array',
+            'stocks.*.branch_id' => 'required|exists:branches,id',
+            'stocks.*.stock' => 'required|integer|min:0',
+        ]);
+
+        foreach ($request->stocks as $stockData) {
+            $product->branchStocks()->updateOrCreate(
+                ['branch_id' => $stockData['branch_id']],
+                ['stock' => $stockData['stock']]
+            );
+        }
+
+        return back()->with('success', 'Stok semua cabang berhasil diperbarui!');
+    }
+
     // API for product search (for kasir/autocomplete)
     public function search(Request $request)
     {
         $term = $request->get('q', '');
-        
+
         $products = Product::active()
             ->inStock()
             ->search($term)
@@ -251,7 +314,7 @@ class ProductController extends Controller
             ->orWhere('sku', $request->barcode)
             ->first();
 
-        if (!$product) {
+        if (! $product) {
             return response()->json(['error' => 'Produk tidak ditemukan'], 404);
         }
 

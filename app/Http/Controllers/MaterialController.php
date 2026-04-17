@@ -2,26 +2,33 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\Material;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class MaterialController extends Controller
 {
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
-            if (!auth()->user()->canManageProducts()) {
+            if (! auth()->user()->canManageProducts()) {
                 abort(403, 'Anda tidak memiliki izin untuk mengakses halaman ini.');
             }
+
             return $next($request);
         });
     }
 
     public function index(Request $request)
     {
-        $materials = Material::when($request->search, function ($query, $search) {
+        $materials = Material::with('branchStocks.branch')
+            ->when($request->search, function ($query, $search) {
                 $query->search($search);
+            })
+            ->when($request->branch, function ($query, $branch) {
+                $query->whereHas('branchStocks', function ($q) use ($branch) {
+                    $q->where('branch_id', $branch);
+                });
             })
             ->when($request->stock_status, function ($query, $status) {
                 if ($status === 'low') {
@@ -35,12 +42,16 @@ class MaterialController extends Controller
             ->orderBy('name')
             ->paginate(15);
 
-        return view('materials.index', compact('materials'));
+        $branches = Branch::where('is_active', true)->orderBy('name')->get();
+
+        return view('materials.index', compact('materials', 'branches'));
     }
 
     public function create()
     {
-        return view('materials.create');
+        $branches = Branch::where('is_active', true)->orderBy('name')->get();
+
+        return view('materials.create', compact('branches'));
     }
 
     public function store(Request $request)
@@ -53,7 +64,15 @@ class MaterialController extends Controller
             'purchase_price' => 'required|numeric|min:0',
         ]);
 
-        Material::create($request->all());
+        $material = Material::create($request->all());
+
+        // Save branch stock if selected
+        if ($request->filled('branch_id')) {
+            $material->branchStocks()->create([
+                'branch_id' => $request->branch_id,
+                'stock' => $request->stock,
+            ]);
+        }
 
         return redirect()->route('materials.index')->with('success', 'Bahan berhasil ditambahkan!');
     }
@@ -109,5 +128,49 @@ class MaterialController extends Controller
         }
 
         return redirect()->route('materials.index')->with('success', $message);
+    }
+
+    public function branchStock(Request $request, Material $material)
+    {
+        $branches = Branch::where('is_active', true)->orderBy('name')->get();
+
+        if ($request->ajax()) {
+            return response()->json($material->branchStocks()->with('branch')->get());
+        }
+
+        return view('materials.branch-stock', compact('material', 'branches'));
+    }
+
+    public function updateBranchStock(Request $request, Material $material)
+    {
+        $request->validate([
+            'branch_id' => 'required|exists:branches,id',
+            'stock' => 'required|numeric|min:0',
+        ]);
+
+        $material->branchStocks()->updateOrCreate(
+            ['branch_id' => $request->branch_id],
+            ['stock' => $request->stock]
+        );
+
+        return back()->with('success', 'Stok cabang berhasil diperbarui!');
+    }
+
+    public function bulkBranchStock(Request $request, Material $material)
+    {
+        $request->validate([
+            'stocks' => 'required|array',
+            'stocks.*.branch_id' => 'required|exists:branches,id',
+            'stocks.*.stock' => 'required|numeric|min:0',
+        ]);
+
+        foreach ($request->stocks as $stockData) {
+            $material->branchStocks()->updateOrCreate(
+                ['branch_id' => $stockData['branch_id']],
+                ['stock' => $stockData['stock']]
+            );
+        }
+
+        return back()->with('success', 'Stok semua cabang berhasil diperbarui!');
     }
 }

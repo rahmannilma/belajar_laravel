@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 
     <!-- Today's Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <!-- Today's Sales -->
         <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
             <div class="flex items-center justify-between">
@@ -143,6 +143,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
         </div>
+
+        <!-- Monthly Profit -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Untung Bulan Ini</p>
+                    <p class="text-2xl font-bold {{ $monthlyProfit >= 0 ? 'text-green-600' : 'text-red-600' }} mt-1">Rp {{ number_format($monthlyProfit, 0, ',', '.') }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ $monthlyTransactions }} transaksi</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Charts Row -->
@@ -163,6 +179,40 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         </div>
     </div>
+
+    <!-- Branch Summary -->
+    @if($branchSummaries->isNotEmpty())
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-8">
+        <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">📊 Ringkasan Cabang hari ini </h3>
+                <a href="{{ route('sales.by-branch') }}" class="text-sm text-teal-600 hover:text-teal-800 dark:text-teal-400">Lihat Detail →</a>
+            </div>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                @foreach($branchSummaries as $data)
+                <div class="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="font-medium text-gray-900 dark:text-white">{{ $data['branch']->name }}</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ $data['transaction_count'] }} transaksi</span>
+                    </div>
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-500 dark:text-gray-400">Penjualan:</span>
+                            <span class="font-medium text-gray-900 dark:text-white">Rp {{ number_format($data['total_sales'], 0, ',', '.') }}</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-500 dark:text-gray-400">Untung:</span>
+                            <span class="font-medium {{ $data['total_profit'] >= 0 ? 'text-green-600' : 'text-red-600' }}">Rp {{ number_format($data['total_profit'], 0, ',', '.') }}</span>
+                        </div>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+        </div>
+    </div>
+    @endif
 
     <!-- Bottom Row -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -193,8 +243,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </div>
                         <div class="text-right">
-                            <p class="text-sm font-semibold text-red-600 dark:text-red-400">{{ $product->stock }}</p>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">min: {{ $product->min_stock }}</p>
+                            <p class="text-sm font-semibold text-red-600 dark:text-red-400">{{ intval($product->stock) }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">min: {{ intval($product->min_stock) }}</p>
                         </div>
                     </div>
                     @endforeach

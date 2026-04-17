@@ -12,9 +12,10 @@ class UserController extends Controller
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
-            if (!auth()->user()->canManageUsers()) {
+            if (! auth()->user()->canManageUsers()) {
                 abort(403, 'Anda tidak memiliki izin untuk mengakses halaman ini.');
             }
+
             return $next($request);
         });
     }
@@ -22,9 +23,10 @@ class UserController extends Controller
     public function index(Request $request)
     {
         $users = User::query()
+            ->with('branch')
             ->when($request->search, function ($query, $search) {
                 $query->where('name', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%");
             })
             ->when($request->role, function ($query, $role) {
                 $query->where('role', $role);
@@ -32,12 +34,16 @@ class UserController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
-        return view('users.index', compact('users'));
+        $branches = \App\Models\Branch::where('is_active', true)->orderBy('name')->get();
+
+        return view('users.index', compact('users', 'branches'));
     }
 
     public function create()
     {
-        return view('users.create');
+        $branches = \App\Models\Branch::where('is_active', true)->orderBy('name')->get();
+
+        return view('users.create', compact('branches'));
     }
 
     public function store(Request $request)
@@ -47,6 +53,7 @@ class UserController extends Controller
             'email' => 'required|email|unique:users,email',
             'password' => ['required', 'confirmed', Rules\Password::min(6)],
             'role' => 'required|in:owner,cashier',
+            'branch_id' => 'nullable|exists:branches,id',
             'is_active' => 'boolean',
         ]);
 
@@ -55,6 +62,7 @@ class UserController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => $request->role,
+            'branch_id' => $request->filled('branch_id') ? $request->branch_id : null,
             'is_active' => $request->boolean('is_active'),
         ]);
 
@@ -63,20 +71,23 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
-        return view('users.edit', compact('user'));
+        $branches = \App\Models\Branch::where('is_active', true)->orderBy('name')->get();
+
+        return view('users.edit', compact('user', 'branches'));
     }
 
     public function update(Request $request, User $user)
     {
         $rules = [
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $user->id,
+            'email' => 'required|email|unique:users,email,'.$user->id,
             'role' => 'required|in:owner,cashier',
+            'branch_id' => 'nullable|exists:branches,id',
             'is_active' => 'boolean',
         ];
 
-        if ($request->password) {
-            $rules['password'] = ['required', 'confirmed', Rules\Password::min(6)];
+        if ($request->filled('password')) {
+            $rules['password'] = ['confirmed', Rules\Password::min(6)];
         }
 
         $request->validate($rules);
@@ -85,10 +96,11 @@ class UserController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'role' => $request->role,
+            'branch_id' => $request->filled('branch_id') ? $request->branch_id : null,
             'is_active' => $request->boolean('is_active'),
         ];
 
-        if ($request->password) {
+        if ($request->filled('password')) {
             $data['password'] = Hash::make($request->password);
         }
 

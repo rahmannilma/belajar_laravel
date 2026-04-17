@@ -5,9 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 class Product extends Model
@@ -40,7 +39,7 @@ class Product extends Model
 
         static::creating(function ($product) {
             if (empty($product->sku)) {
-                $product->sku = 'SKU-' . strtoupper(Str::random(8));
+                $product->sku = 'SKU-'.strtoupper(Str::random(8));
             }
         });
     }
@@ -62,9 +61,27 @@ class Product extends Model
             ->withTimestamps();
     }
 
-    public function isLowStock(): bool
+    public function branchStocks(): HasMany
     {
-        return $this->stock <= $this->min_stock;
+        return $this->hasMany(ProductBranchStock::class);
+    }
+
+    public function getStockForBranch(?int $branchId): ?float
+    {
+        if (! $branchId) {
+            return $this->stock;
+        }
+
+        $branchStock = $this->branchStocks()->where('branch_id', $branchId)->first();
+
+        return $branchStock?->stock ?? $this->stock;
+    }
+
+    public function isLowStock(?int $branchId = null): bool
+    {
+        $stock = $this->getStockForBranch($branchId);
+
+        return $stock <= $this->min_stock;
     }
 
     public function getProfitAttribute(): float
@@ -77,7 +94,8 @@ class Product extends Model
         if ((float) $this->purchase_price == 0) {
             return 0;
         }
-        return (($this->profit / (float) $this->purchase_price) * 100);
+
+        return ($this->profit / (float) $this->purchase_price) * 100;
     }
 
     public function scopeLowStock($query)
@@ -99,8 +117,8 @@ class Product extends Model
     {
         return $query->where(function ($q) use ($term) {
             $q->where('name', 'like', "%{$term}%")
-              ->orWhere('sku', 'like', "%{$term}%")
-              ->orWhere('barcode', 'like', "%{$term}%");
+                ->orWhere('sku', 'like', "%{$term}%")
+                ->orWhere('barcode', 'like', "%{$term}%");
         });
     }
 }

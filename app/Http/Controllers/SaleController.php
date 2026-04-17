@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\Sale;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -10,7 +11,15 @@ class SaleController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Sale::with('user', 'items');
+        $user = auth()->user();
+        $query = Sale::with('user', 'items', 'branch')->completed();
+
+        // Branch filter - owner can filter by branch, cashier sees their branch only
+        if ($user->isOwner() && $request->branch) {
+            $query->where('branch_id', $request->branch);
+        } elseif (! $user->isOwner() && $user->branch_id) {
+            $query->where('branch_id', $user->branch_id);
+        }
 
         // Date filters
         if ($request->date) {
@@ -47,19 +56,59 @@ class SaleController extends Controller
             $query->where('invoice_number', 'like', "%{$request->search}%");
         }
 
+        // Summary stats (before pagination)
+        $totalAmount = (clone $query)->sum('total_amount');
+        $totalProfit = (clone $query)->sum('profit');
+        $totalTransactions = (clone $query)->count();
+
         $sales = $query->orderBy('sale_date', 'desc')->paginate(20);
 
-        // Summary stats
-        $totalAmount = $query->sum('total_amount');
-        $totalProfit = $query->sum('profit');
-        $totalTransactions = $query->count();
+        // Branches for filter (owner only)
+        $branches = $user->isOwner() ? Branch::orderBy('name')->get() : collect();
 
-        return view('sales.index', compact('sales', 'totalAmount', 'totalProfit', 'totalTransactions'));
+        return view('sales.index', compact('sales', 'totalAmount', 'totalProfit', 'totalTransactions', 'branches'));
+    }
+
+    public function overview(Request $request)
+    {
+        $branches = Branch::where('is_active', true)->orderBy('name')->get();
+
+        // Date filters
+        $startDate = $request->start_date ? Carbon::parse($request->start_date)->startOfDay() : Carbon::today()->startOfDay();
+        $endDate = $request->end_date ? Carbon::parse($request->end_date)->endOfDay() : Carbon::today()->endOfDay();
+
+        $branchSummaries = $branches->map(function ($branch) use ($startDate, $endDate) {
+            $sales = Sale::where('branch_id', $branch->id)
+                ->whereBetween('sale_date', [$startDate, $endDate]);
+
+            $salesCount = (clone $sales)->count();
+            $totalSales = (clone $sales)->sum('total_amount');
+            $totalProfit = (clone $sales)->sum('profit');
+            $totalCost = (clone $sales)->sum('total_cost');
+
+            return [
+                'branch' => $branch,
+                'sales_count' => $salesCount,
+                'total_sales' => $totalSales,
+                'total_profit' => $totalProfit,
+                'total_cost' => $totalCost,
+            ];
+        });
+
+        // Overall summary
+        $overallSales = Sale::whereBetween('sale_date', [$startDate, $endDate]);
+        $overallCount = (clone $overallSales)->count();
+        $overallTotal = (clone $overallSales)->sum('total_amount');
+        $overallProfit = (clone $overallSales)->sum('profit');
+        $overallCost = (clone $overallSales)->sum('total_cost');
+
+        return view('sales.overview', compact('branches', 'branchSummaries', 'startDate', 'endDate', 'overallCount', 'overallTotal', 'overallProfit', 'overallCost'));
     }
 
     public function show(Sale $sale)
     {
         $sale->load('user', 'items.product');
+
         return view('sales.show', compact('sale'));
     }
 
@@ -93,11 +142,11 @@ class SaleController extends Controller
         $topProducts = \App\Models\SaleItem::whereHas('sale', function ($query) use ($parsedDate) {
             $query->whereDate('sale_date', $parsedDate);
         })
-        ->selectRaw('product_id, product_name, SUM(quantity) as total_qty, SUM(subtotal) as total_sales')
-        ->groupBy('product_id', 'product_name')
-        ->orderBy('total_qty', 'desc')
-        ->limit(10)
-        ->get();
+            ->selectRaw('product_id, product_name, SUM(quantity) as total_qty, SUM(subtotal) as total_sales')
+            ->groupBy('product_id', 'product_name')
+            ->orderBy('total_qty', 'desc')
+            ->limit(10)
+            ->get();
 
         // Hourly sales
         $hourlySales = $sales->groupBy(function ($sale) {
@@ -162,11 +211,11 @@ class SaleController extends Controller
         $topProducts = \App\Models\SaleItem::whereHas('sale', function ($query) use ($start, $end) {
             $query->whereBetween('sale_date', [$start, $end]);
         })
-        ->selectRaw('product_id, product_name, SUM(quantity) as total_qty, SUM(subtotal) as total_sales')
-        ->groupBy('product_id', 'product_name')
-        ->orderBy('total_qty', 'desc')
-        ->limit(10)
-        ->get();
+            ->selectRaw('product_id, product_name, SUM(quantity) as total_qty, SUM(subtotal) as total_sales')
+            ->groupBy('product_id', 'product_name')
+            ->orderBy('total_qty', 'desc')
+            ->limit(10)
+            ->get();
 
         return view('sales.weekly-report', compact(
             'startDate',
@@ -196,11 +245,11 @@ class SaleController extends Controller
             ->orderBy('sale_date', 'desc')
             ->get();
 
-        $filename = 'sales-report-' . $start->format('Ymd') . '-' . $end->format('Ymd') . '.csv';
+        $filename = 'sales-report-'.$start->format('Ymd').'-'.$end->format('Ymd').'.csv';
 
         $headers = [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ];
 
         $handle = fopen('php://temp', 'r+');
@@ -251,7 +300,7 @@ class SaleController extends Controller
     public function printDailyReport(Request $request)
     {
         $date = $request->get('date', Carbon::today()->format('Y-m-d'));
-        
+
         $parsedDate = Carbon::parse($date);
         $sales = Sale::with('user', 'items')
             ->whereDate('sale_date', $parsedDate)
@@ -266,25 +315,147 @@ class SaleController extends Controller
 
     public function destroy(Sale $sale)
     {
-        // Only owner can delete sales
-        if (!auth()->user()->isOwner()) {
-            abort(403, 'Hanya pemilik yang dapat menghapus penjualan!');
-        }
+        $user = auth()->user();
 
-        // Restore stock for each item
-        foreach ($sale->items as $item) {
-            // Restore product stock
-            $item->product->increment('stock', $item->quantity);
-
-            // Restore material stock
-            foreach ($item->product->materials as $material) {
-                $material->increment('stock', $material->pivot->quantity * $item->quantity);
+        // Owner can delete any sale, cashier can only delete cancelled sales from their branch
+        if (! $user->isOwner()) {
+            if (! $sale->isCancelled()) {
+                abort(403, 'Gunakan fitur batalkan untuk membatalkan transaksi!');
+            }
+            if ($sale->branch_id !== $user->branch_id) {
+                abort(403, 'Anda tidak dapat menghapus transaksi cabang lain!');
             }
         }
 
-        $sale->items()->delete();
-        $sale->delete();
+        // If already cancelled, allow permanent delete
+        if ($sale->isCancelled()) {
+            $sale->items()->delete();
+            $sale->delete();
 
-        return redirect()->route('sales.index')->with('success', 'Penjualan berhasil dihapus dan stok dikembalikan!');
+            return redirect()->route('sales.index')->with('success', 'Transaksi berhasil dihapus permanen!');
+        }
+
+        return redirect()->route('sales.index')->with('error', 'Gunakan fitur batalkan untuk membatalkan transaksi!');
+    }
+
+    public function cancel(Sale $sale)
+    {
+        $user = auth()->user();
+
+        // Owner can cancel any sale, cashier can only cancel sales from their branch
+        if (! $user->isOwner() && $sale->branch_id !== $user->branch_id) {
+            abort(403, 'Anda tidak dapat membatalkan transaksi cabang lain!');
+        }
+
+        // Cannot cancel already cancelled sales
+        if ($sale->isCancelled()) {
+            abort(400, 'Transaksi sudah dibatalkan!');
+        }
+
+        $branchId = $sale->branch_id;
+
+        // Restore stock for each item
+        foreach ($sale->items as $item) {
+            // Restore product branch stock
+            $productBranchStock = $item->product->branchStocks()->where('branch_id', $branchId)->first();
+            if ($productBranchStock) {
+                $productBranchStock->increment('stock', $item->quantity);
+            } else {
+                $item->product->increment('stock', $item->quantity);
+            }
+
+            // Restore material branch stock
+            foreach ($item->product->materials as $material) {
+                $materialBranchStock = $material->branchStocks()->where('branch_id', $branchId)->first();
+                if ($materialBranchStock) {
+                    $materialBranchStock->increment('stock', $material->pivot->quantity * $item->quantity);
+                } else {
+                    $material->increment('stock', $material->pivot->quantity * $item->quantity);
+                }
+            }
+        }
+
+        // Mark as cancelled
+        $sale->update([
+            'status' => 'cancelled',
+            'cancelled_at' => now(),
+        ]);
+
+        return redirect()->back()->with('success', 'Penjualan berhasil dibatalkan dan stok dikembalikan!');
+    }
+
+    public function branchTransactions(Request $request)
+    {
+        $user = auth()->user();
+
+        // Owner sees all branches
+        $branches = Branch::orderBy('name')->get();
+
+        $startDate = $request->start_date ? Carbon::parse($request->start_date)->startOfDay() : null;
+        $endDate = $request->end_date ? Carbon::parse($request->end_date)->endOfDay() : Carbon::now()->endOfDay();
+
+        $query = Sale::with('user', 'items', 'branch')->completed();
+
+        // Branch filter
+        if ($request->branch_id) {
+            $query->where('branch_id', $request->branch_id);
+        } elseif (! $user->isOwner() && $user->branch_id) {
+            // Cashier sees only their branch
+            $query->where('branch_id', $user->branch_id);
+        }
+
+        if ($startDate) {
+            $query->whereBetween('sale_date', [$startDate, $endDate]);
+        }
+
+        // Summary stats (before pagination)
+        $overallTotal = (clone $query)->sum('total_amount');
+        $overallProfit = (clone $query)->sum('profit');
+        $overallCost = (clone $query)->sum('total_cost');
+        $overallCount = (clone $query)->count();
+
+        $sales = $query->orderBy('sale_date', 'desc')->paginate(20);
+
+        $branchData = $branches->map(function ($branch) use ($startDate, $endDate) {
+            $query = Sale::where('branch_id', $branch->id)->with('user', 'items')->completed();
+
+            if ($startDate) {
+                $query->whereBetween('sale_date', [$startDate, $endDate]);
+            }
+
+            $sales = (clone $query)->orderBy('sale_date', 'desc')->get();
+
+            $totalSales = (clone $query)->sum('total_amount');
+            $totalProfit = (clone $query)->sum('profit');
+            $totalCost = (clone $query)->sum('total_cost');
+            $transactionCount = (clone $query)->count();
+
+            $todayQuery = Sale::where('branch_id', $branch->id)->completed()->whereDate('sale_date', today());
+            $todaySales = $todayQuery->sum('total_amount');
+            $todayTransactionCount = $todayQuery->count();
+
+            return [
+                'branch' => $branch,
+                'sales' => $sales,
+                'total_sales' => $totalSales,
+                'total_profit' => $totalProfit,
+                'total_cost' => $totalCost,
+                'transaction_count' => $transactionCount,
+                'today_sales' => $todaySales,
+                'today_transaction_count' => $todayTransactionCount,
+            ];
+        });
+
+        return view('sales.branch-transactions', compact(
+            'branches',
+            'sales',
+            'overallTotal',
+            'overallProfit',
+            'overallCost',
+            'overallCount',
+            'startDate',
+            'endDate',
+            'branchData'
+        ));
     }
 }

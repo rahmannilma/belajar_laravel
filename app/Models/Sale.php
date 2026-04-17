@@ -14,6 +14,7 @@ class Sale extends Model
 
     protected $fillable = [
         'user_id',
+        'branch_id',
         'invoice_number',
         'sale_date',
         'subtotal',
@@ -27,6 +28,8 @@ class Sale extends Model
         'payment_method',
         'customer_name',
         'notes',
+        'status',
+        'cancelled_at',
     ];
 
     protected $casts = [
@@ -47,7 +50,7 @@ class Sale extends Model
 
         static::creating(function ($sale) {
             if (empty($sale->invoice_number)) {
-                $sale->invoice_number = 'INV-' . date('Ymd') . '-' . strtoupper(Str::random(6));
+                $sale->invoice_number = 'INV-'.date('Ymd').'-'.strtoupper(Str::random(6));
             }
             if (empty($sale->sale_date)) {
                 $sale->sale_date = now();
@@ -58,6 +61,11 @@ class Sale extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function items(): HasMany
@@ -78,7 +86,22 @@ class Sale extends Model
     public function scopeThisMonth($query)
     {
         return $query->whereMonth('sale_date', now()->month)
-                     ->whereYear('sale_date', now()->year);
+            ->whereYear('sale_date', now()->year);
+    }
+
+    public function scopeCompleted($query)
+    {
+        return $query->where('status', 'completed');
+    }
+
+    public function scopeCancelled($query)
+    {
+        return $query->where('status', 'cancelled');
+    }
+
+    public function isCancelled(): bool
+    {
+        return $this->status === 'cancelled';
     }
 
     public function scopeDateRange($query, $startDate, $endDate)
@@ -105,24 +128,24 @@ class Sale extends Model
     public function calculateTotals(): void
     {
         $this->load('items');
-        
+
         $subtotal = $this->items->sum('subtotal');
         $this->subtotal = $subtotal;
-        
+
         $discountAmount = $subtotal * ($this->discount_percent / 100);
         $this->discount_amount = $discountAmount;
-        
+
         $taxableAmount = $subtotal - $discountAmount;
         $this->tax_amount = $taxableAmount * ($this->tax_percent / 100);
-        
+
         $this->total_amount = $taxableAmount + $this->tax_amount;
-        
+
         $this->total_cost = $this->items->sum(function ($item) {
             return $item->cost_price * $item->quantity;
         });
-        
+
         $this->profit = $this->total_amount - $this->total_cost - $discountAmount;
-        
+
         $this->save();
     }
 }

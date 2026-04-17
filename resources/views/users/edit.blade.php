@@ -64,8 +64,20 @@
                 <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                 @enderror
             </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Cabang</label>
+                <select name="branch_id"
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                    <option value="">Pilih Subsidiaries (Opsional)</option>
+                    @foreach($branches as $branch)
+                    <option value="{{ $branch->id }}" {{ old('branch_id', $user->branch_id) == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>
+                    @endforeach
+                </select>
+            </div>
             
             <div class="flex items-center">
+                <input type="hidden" name="is_active" value="0">
                 <input type="checkbox" name="is_active" id="is_active" value="1" 
                     {{ old('is_active', $user->is_active) ? 'checked' : '' }}
                     class="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500">

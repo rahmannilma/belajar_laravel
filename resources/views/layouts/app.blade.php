@@ -47,21 +47,23 @@
                         <!-- Desktop Menu -->
                         <div class="hidden md:flex ml-10 space-x-1">
                             @if(!auth()->user()->isCashier())
-                            <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
+<x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                                 <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
                                 </svg>
                                 Dashboard
                             </x-nav-link>
-                            @endif
                             
+                            @if(auth()->user()->isCashier())
                             <x-nav-link :href="route('kasir')" :active="request()->routeIs('kasir')">
                                 <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
                                 </svg>
                                 Kasir
                             </x-nav-link>
-
+                            @endif
+                            @endif
+                            
                             @if(auth()->user()->canManageProducts())
                             <x-nav-link :href="route('products.index')" :active="request()->routeIs('products.*')">
                                 <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -92,6 +94,22 @@
                                 </svg>
                                 Kategori
                             </x-nav-link>
+
+                            <x-nav-link :href="route('branches.index')" :active="request()->routeIs('branches.index')">
+                                <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                </svg>
+                                Cabin
+                            </x-nav-link>
+
+                            @if(auth()->user()->canManageProducts())
+                            <x-nav-link :href="route('branches.stock-overview')" :active="request()->routeIs('branches.stock-overview')">
+                                <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                                </svg>
+                                Stok Cabin
+                            </x-nav-link>
+                            @endif
 
                             <x-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">
                                 <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -166,7 +184,9 @@
                     @if(!auth()->user()->isCashier())
                     <x-mobile-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">Dashboard</x-mobile-nav-link>
                     @endif
+                    @if(auth()->user()->isCashier())
                     <x-mobile-nav-link :href="route('kasir')" :active="request()->routeIs('kasir')">Kasir</x-mobile-nav-link>
+                    @endif
                     @if(auth()->user()->canManageProducts())
                     <x-mobile-nav-link :href="route('products.index')" :active="request()->routeIs('products.*')">Produk</x-mobile-nav-link>
                     <x-mobile-nav-link :href="route('materials.index')" :active="request()->routeIs('materials.*')">Bahan</x-mobile-nav-link>
@@ -174,6 +194,7 @@
                     <x-mobile-nav-link :href="route('sales.index')" :active="request()->routeIs('sales.*')">Penjualan</x-mobile-nav-link>
                     @if(auth()->user()->canManageUsers())
                     <x-mobile-nav-link :href="route('categories.index')" :active="request()->routeIs('categories.*')">Kategori</x-mobile-nav-link>
+                    <x-mobile-nav-link :href="route('branches.index')" :active="request()->routeIs('branches.*')">Cabang</x-mobile-nav-link>
                     <x-mobile-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">Users</x-mobile-nav-link>
                     @endif
                 </div>

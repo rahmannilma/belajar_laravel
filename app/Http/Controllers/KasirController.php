@@ -14,14 +14,55 @@ class KasirController extends Controller
 {
     public function index()
     {
+        $branchId = auth()->user()->branch_id;
+
         $products = Product::active()
-            ->with('category')
+            ->with('category', 'branchStocks', 'materials.branchStocks')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter(function ($product) use ($branchId) {
+                $branchStock = $product->branchStocks()->where('branch_id', $branchId)->first();
+                if (! $branchStock) {
+                    return false;
+                }
+
+                $productStock = $branchStock->stock;
+                if ($productStock <= 0) {
+                    return false;
+                }
+
+                foreach ($product->materials as $material) {
+                    $materialBranchStock = $material->branchStocks()->where('branch_id', $branchId)->first();
+                    if (! $materialBranchStock) {
+                        return false;
+                    }
+                    $materialStock = $materialBranchStock->stock;
+                    if ($materialStock <= 0) {
+                        return false;
+                    }
+                }
+
+                return true;
+            })
+            ->map(function ($product) use ($branchId) {
+                $branchStock = $product->branchStocks()->where('branch_id', $branchId)->first();
+                $product->display_stock = $branchStock?->stock ?? 0;
+                $product->stock = $branchStock?->stock ?? 0;
+
+                return $product;
+            })
+            ->values();
 
         $categories = \App\Models\Category::withCount('products')->get();
 
-        return view('kasir.index', compact('products', 'categories'));
+        $recentSales = Sale::with('user')
+            ->where('branch_id', $branchId)
+            ->whereDate('sale_date', today())
+            ->orderBy('sale_date', 'desc')
+            ->limit(10)
+            ->get();
+
+        return view('kasir.index', compact('products', 'categories', 'recentSales'));
     }
 
     public function store(Request $request)
@@ -36,6 +77,8 @@ class KasirController extends Controller
             'notes' => 'nullable|string|max:500',
         ]);
 
+        $branchId = auth()->user()->branch_id;
+
         try {
             DB::beginTransaction();
 
@@ -47,18 +90,22 @@ class KasirController extends Controller
             $itemsData = [];
 
             foreach ($request->items as $item) {
-                $product = Product::findOrFail($item['product_id']);
+                $product = Product::with('branchStocks', 'materials.branchStocks')->findOrFail($item['product_id']);
+
+                // Get branch stock
+                $productStock = $product->getStockForBranch($branchId);
 
                 // Check product stock
-                if ($product->stock < $item['quantity']) {
-                    throw new \Exception("Stok produk {$product->name} tidak mencukupi! Stok tersedia: {$product->stock}");
+                if ($productStock < $item['quantity']) {
+                    throw new \Exception("Stok produk {$product->name} tidak mencukupi! Stok tersedia: {$productStock}");
                 }
 
                 // Check material stock (recipe)
                 foreach ($product->materials as $material) {
                     $requiredAmount = $material->pivot->quantity * $item['quantity'];
-                    if ($material->stock < $requiredAmount) {
-                        throw new \Exception("Stok bahan {$material->name} tidak mencukupi untuk membuat {$item['quantity']} {$product->name}! Stok tersedia: {$material->stock} {$material->unit}, Dibutuhkan: {$requiredAmount} {$material->unit}");
+                    $materialStock = $material->getStockForBranch($branchId);
+                    if ($materialStock < $requiredAmount) {
+                        throw new \Exception("Stok bahan {$material->name} tidak mencukupi untuk membuat {$item['quantity']} {$product->name}! Stok tersedia: {$materialStock} {$material->unit}, Dibutuhkan: {$requiredAmount} {$material->unit}");
                     }
                 }
 
@@ -79,12 +126,22 @@ class KasirController extends Controller
                     'cost_price' => $costPrice,
                 ];
 
-                // Reduce product stock
-                $product->decrement('stock', $quantity);
+                // Reduce product branch stock
+                $branchStock = $product->branchStocks()->where('branch_id', $branchId)->first();
+                if ($branchStock) {
+                    $branchStock->decrement('stock', $quantity);
+                } else {
+                    $product->decrement('stock', $quantity);
+                }
 
-                // Reduce material stock
+                // Reduce material branch stock
                 foreach ($product->materials as $material) {
-                    $material->decrement('stock', $material->pivot->quantity * $quantity);
+                    $materialBranchStock = $material->branchStocks()->where('branch_id', $branchId)->first();
+                    if ($materialBranchStock) {
+                        $materialBranchStock->decrement('stock', $material->pivot->quantity * $quantity);
+                    } else {
+                        $material->decrement('stock', $material->pivot->quantity * $quantity);
+                    }
                 }
             }
 
@@ -96,6 +153,7 @@ class KasirController extends Controller
             // Create sale
             $sale = Sale::create([
                 'user_id' => auth()->id(),
+                'branch_id' => auth()->user()->branch_id,
                 'invoice_number' => $invoiceNumber,
                 'sale_date' => now(),
                 'subtotal' => $subtotal,
@@ -157,18 +215,49 @@ class KasirController extends Controller
     {
         $term = $request->get('q', '');
         $categoryId = $request->get('category');
+        $branchId = auth()->user()->branch_id;
 
         $query = Product::active()
-            ->inStock()
+            ->with('category', 'branchStocks', 'materials.branchStocks')
             ->search($term);
 
         if ($categoryId) {
             $query->where('category_id', $categoryId);
         }
 
-        $products = $query->with('category')
-            ->limit(20)
-            ->get();
+        $products = $query->limit(50)->get()
+            ->filter(function ($product) use ($branchId) {
+                $branchStock = $product->branchStocks()->where('branch_id', $branchId)->first();
+                if (! $branchStock) {
+                    return false;
+                }
+
+                $productStock = $branchStock->stock;
+                if ($productStock <= 0) {
+                    return false;
+                }
+
+                foreach ($product->materials as $material) {
+                    $materialBranchStock = $material->branchStocks()->where('branch_id', $branchId)->first();
+                    if (! $materialBranchStock) {
+                        return false;
+                    }
+                    $materialStock = $materialBranchStock->stock;
+                    if ($materialStock <= 0) {
+                        return false;
+                    }
+                }
+
+                return true;
+            })
+            ->map(function ($product) use ($branchId) {
+                $branchStock = $product->branchStocks()->where('branch_id', $branchId)->first();
+                $product->display_stock = $branchStock?->stock ?? 0;
+
+                return $product;
+            })
+            ->take(20)
+            ->values();
 
         return response()->json($products);
     }
@@ -176,9 +265,14 @@ class KasirController extends Controller
     // API: Get product details
     public function getProduct(Product $product)
     {
+        $branchId = auth()->user()->branch_id;
+
         if (! $product->is_active) {
             return response()->json(['error' => 'Produk tidak aktif'], 404);
         }
+
+        $product->load('branchStocks');
+        $productStock = $product->getStockForBranch($branchId);
 
         return response()->json([
             'id' => $product->id,
@@ -186,8 +280,8 @@ class KasirController extends Controller
             'sku' => $product->sku,
             'barcode' => $product->barcode,
             'price' => $product->selling_price,
-            'stock' => $product->stock,
-            'is_low_stock' => $product->isLowStock(),
+            'stock' => $productStock,
+            'is_low_stock' => $product->isLowStock($branchId),
             'category' => $product->category->name,
         ]);
     }
@@ -197,18 +291,50 @@ class KasirController extends Controller
     {
         $days = $request->get('days', 7);
         $date = now()->subDays($days);
+        $branchId = auth()->user()->branch_id;
 
         $products = Product::withSum([
-            'saleItems' => function ($query) use ($date) {
-                $query->whereHas('sale', function ($q) use ($date) {
-                    $q->where('sale_date', '>=', $date);
+            'saleItems' => function ($query) use ($date, $branchId) {
+                $query->whereHas('sale', function ($q) use ($date, $branchId) {
+                    $q->where('sale_date', '>=', $date)
+                        ->where('branch_id', $branchId);
                 });
             },
         ], 'quantity')
             ->having('sale_items_sum_quantity', '>', 0)
             ->orderBy('sale_items_sum_quantity', 'desc')
             ->limit(10)
-            ->get();
+            ->get()
+            ->filter(function ($product) use ($branchId) {
+                $branchStock = $product->branchStocks()->where('branch_id', $branchId)->first();
+                if (! $branchStock) {
+                    return false;
+                }
+
+                $productStock = $branchStock->stock;
+                if ($productStock <= 0) {
+                    return false;
+                }
+
+                foreach ($product->materials as $material) {
+                    $materialBranchStock = $material->branchStocks()->where('branch_id', $branchId)->first();
+                    if (! $materialBranchStock) {
+                        return false;
+                    }
+                    $materialStock = $materialBranchStock->stock;
+                    if ($materialStock <= 0) {
+                        return false;
+                    }
+                }
+
+                return true;
+            })
+            ->map(function ($product) use ($branchId) {
+                $branchStock = $product->branchStocks()->where('branch_id', $branchId)->first();
+                $product->display_stock = $branchStock?->stock ?? 0;
+
+                return $product;
+            });
 
         return response()->json($products);
     }
@@ -217,18 +343,44 @@ class KasirController extends Controller
     public function suggestions(Request $request)
     {
         $term = $request->get('q', '');
+        $branchId = auth()->user()->branch_id;
 
         $products = Product::active()
-            ->inStock()
+            ->with('category', 'branchStocks', 'materials.branchStocks')
             ->search($term)
-            ->with('category')
             ->limit(10)
-            ->get();
+            ->get()
+            ->filter(function ($product) use ($branchId) {
+                $branchStock = $product->branchStocks()->where('branch_id', $branchId)->first();
+                if (! $branchStock) {
+                    return false;
+                }
 
-        // Add low stock warning for each product
-        $products->each(function ($product) {
-            $product->low_stock_warning = $product->isLowStock();
-        });
+                $productStock = $branchStock->stock;
+                if ($productStock <= 0) {
+                    return false;
+                }
+
+                foreach ($product->materials as $material) {
+                    $materialBranchStock = $material->branchStocks()->where('branch_id', $branchId)->first();
+                    if (! $materialBranchStock) {
+                        return false;
+                    }
+                    $materialStock = $materialBranchStock->stock;
+                    if ($materialStock <= 0) {
+                        return false;
+                    }
+                }
+
+                return true;
+            })
+            ->map(function ($product) use ($branchId) {
+                $branchStock = $product->branchStocks()->where('branch_id', $branchId)->first();
+                $product->display_stock = $branchStock?->stock ?? 0;
+                $product->low_stock_warning = $branchStock ? ($branchStock->stock <= $product->min_stock) : true;
+
+                return $product;
+            });
 
         return response()->json($products);
     }

@@ -39,6 +39,16 @@
                 </select>
             </div>
             <div class="w-40">
+                <select name="branch" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                    <option value="">Semua Cabin</option>
+                    @foreach($branches as $branch)
+                    <option value="{{ $branch->id }}" {{ request('branch') == $branch->id ? 'selected' : '' }}>
+                        {{ $branch->name }}
+                    </option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="w-40">
                 <select name="stock_status" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
                     <option value="">Semua Stok</option>
                     <option value="low" {{ request('stock_status') == 'low' ? 'selected' : '' }}>Stok Rendah</option>
@@ -65,7 +75,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">SKU</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kategori</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Harga Jual</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Stok</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Stok Cabin</th>
                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aksi</th>
                     </tr>
                 </thead>
@@ -95,9 +105,22 @@
                         <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{{ $product->category->name ?? '-' }}</td>
                         <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">Rp {{ number_format($product->selling_price, 0, ',', '.') }}</td>
                         <td class="px-6 py-4">
+                            @if($product->branchStocks->count() > 0)
+                            <div class="space-y-1">
+                                @foreach($product->branchStocks as $bs)
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="text-gray-500 dark:text-gray-400">{{ $bs->branch->name }}:</span>
+                                    <span class="px-2 py-0.5 text-xs font-medium rounded-full {{ $bs->stock > $product->min_stock ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : ($bs->stock > 0 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400') }}">
+                                        {{ intval($bs->stock) }}
+                                    </span>
+                                </div>
+                                @endforeach
+                            </div>
+                            @else
                             <span class="px-2 py-1 text-xs font-medium rounded-full {{ $product->stock > $product->min_stock ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : ($product->stock > 0 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400') }}">
-                                {{ $product->stock }}
+                                {{ intval($product->stock) }}
                             </span>
+                            @endif
                         </td>
                         <td class="px-6 py-4 text-right">
                             <div class="flex items-center justify-end gap-2">
@@ -110,6 +133,11 @@
                                 <a href="{{ route('products.edit', $product) }}" class="p-2 text-gray-400 hover:text-blue-500 transition-colors">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </a>
+                                <a href="{{ route('products.branch-stock', $product) }}" class="p-2 text-gray-400 hover:text-purple-500 transition-colors" title="Stok Cabin">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                                     </svg>
                                 </a>
                                 <form action="{{ route('products.destroy', $product) }}" method="POST" class="inline" onsubmit="return confirm('Yakin ingin menghapus produk ini?')">

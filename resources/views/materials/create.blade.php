@@ -93,7 +93,20 @@
                     <p class="mt-1 text-xs text-gray-500">Peringatan akan muncul jika stok di bawah nilai ini.</p>
                     @error('min_stock') <p class="mt-1 text-sm text-red-500">{{ $message }}</p> @enderror
                 </div>
-            </div>
+
+                <!-- Branch Stock -->
+                <div>
+                    <label for="branch_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Stok Cabin <span class="text-red-500">*</span></label>
+                    <select name="branch_id" id="branch_id" 
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-teal-500 focus:border-teal-500">
+                        <option value="">Pilih Cabin</option>
+                        @foreach($branches as $branch)
+                        <option value="{{ $branch->id }}" {{ old('branch_id') == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>
+                        @endforeach
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500">Pilih cabang tempat stok akan disimpan</p>
+                    @error('branch_id') <p class="mt-1 text-sm text-red-500">{{ $message }}</p> @enderror
+                </div>
 
             <div class="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <a href="{{ route('materials.index') }}" class="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium">
