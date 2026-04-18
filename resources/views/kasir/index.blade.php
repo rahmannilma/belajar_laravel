@@ -188,6 +188,54 @@
                 </div>
             </div>
 
+            <!-- Payment Amount (Cash) -->
+            <div class="px-4 pb-4" x-show="paymentMethod === 'cash'">
+                <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">💵 Uang Diterima</label>
+                <div class="relative">
+                    <span class="absolute left-4 top-1/2 transform -translate-y-1/2 text-xl font-bold text-gray-500 dark:text-gray-400">Rp</span>
+                    <input type="text" x-model="paymentAmountDisplay" @input="updatePaymentAmount()" 
+                        class="w-full pl-12 pr-4 py-4 border-2 border-teal-300 dark:border-teal-600 rounded-xl dark:bg-gray-700 dark:text-white text-2xl font-bold text-right focus:ring-2 focus:ring-teal-500 focus:border-teal-500" 
+                        placeholder="0" inputmode="numeric">
+                </div>
+                <div class="mt-3 grid grid-cols-3 gap-2">
+                    <button @click="addPaymentAmount(5000)" class="py-3 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-bold hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors">+5.000</button>
+                    <button @click="addPaymentAmount(10000)" class="py-3 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-bold hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors">+10.000</button>
+                    <button @click="addPaymentAmount(20000)" class="py-3 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-bold hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors">+20.000</button>
+                    <button @click="addPaymentAmount(50000)" class="py-3 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-sm font-bold hover:bg-purple-200 dark:hover:bg-purple-800 transition-colors">+50.000</button>
+                    <button @click="addPaymentAmount(100000)" class="py-3 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-sm font-bold hover:bg-purple-200 dark:hover:bg-purple-800 transition-colors">+100.000</button>
+                    <button @click="addPaymentAmount(totalAmount)" class="py-3 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-lg text-sm font-bold hover:bg-amber-200 dark:hover:bg-amber-800 transition-colors">✨ UPPT</button>
+                </div>
+            </div>
+
+            <!-- Change / Error -->
+            <div class="px-4 pb-4" x-show="paymentMethod === 'cash'" x-cloak>
+                <div x-show="changeAmount > 0" class="p-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl shadow-lg">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="text-sm font-medium opacity-90">Kembalian</span>
+                            <p class="text-3xl font-bold">Rp <span x-text="formatNumber(changeAmount)"></span></p>
+                        </div>
+                        <svg class="w-10 h-10 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <div x-show="changeAmount < 0 && paymentAmount > 0" class="p-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl shadow-lg">
+                    <div class="flex items-center gap-3">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div>
+                            <span class="text-sm font-medium opacity-90">Uang Kurang</span>
+                            <p class="text-2xl font-bold">Rp <span x-text="formatNumber(Math.abs(changeAmount))"></span></p>
+                        </div>
+                    </div>
+                </div>
+                <div x-show="paymentAmount === 0 && totalAmount > 0" class="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg text-center">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400">⚠️ Masukkan uang diterima</span>
+                </div>
+            </div>
+
             <!-- Customer Name (Optional) -->
             <div class="px-4 pb-4">
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nama Pelanggan (opsional)</label>
@@ -336,6 +384,8 @@ function posSystem() {
         taxAmount: 0,
         totalAmount: 0,
         paymentMethod: 'cash',
+        paymentAmount: 0,
+        paymentAmountDisplay: '',
         customerName: '',
         showReceipt: false,
         lastTransaction: null,
@@ -432,6 +482,8 @@ function posSystem() {
                 this.cartItems = [];
                 this.discountPercent = 0;
                 this.customerName = '';
+                this.paymentAmount = 0;
+                this.paymentAmountDisplay = '';
                 this.calculateTotals();
             }
         },
@@ -446,7 +498,27 @@ function posSystem() {
             return Math.round(num).toLocaleString('id-ID');
         },
 
+        get changeAmount() {
+            return this.paymentAmount - this.totalAmount;
+        },
+
+        updatePaymentAmount() {
+            const cleanValue = this.paymentAmountDisplay.replace(/[^0-9]/g, '');
+            const numericValue = parseInt(cleanValue) || 0;
+            this.paymentAmount = numericValue;
+            this.paymentAmountDisplay = numericValue.toLocaleString('id-ID');
+        },
+
+        addPaymentAmount(amount) {
+            this.paymentAmount = amount;
+            this.paymentAmountDisplay = amount.toLocaleString('id-ID');
+        },
+
         async processTransaction() {
+            if (this.paymentMethod === 'cash' && this.changeAmount < 0) {
+                alert('Uang yang diberikan kurang!');
+                return;
+            }
             if (this.cartItems.length === 0) {
                 alert('Keranjang masih kosong!');
                 return;
@@ -480,6 +552,8 @@ function posSystem() {
                     this.cartItems = [];
                     this.discountPercent = 0;
                     this.customerName = '';
+                    this.paymentAmount = 0;
+                    this.paymentAmountDisplay = '';
                     this.calculateTotals();
                     
                     // Refresh page after 2 seconds to update stock
