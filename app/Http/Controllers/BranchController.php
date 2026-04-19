@@ -22,7 +22,21 @@ class BranchController extends Controller
 
     public function index()
     {
-        $branches = Branch::withCount(['users', 'sales'])->orderBy('name')->get();
+        $user = auth()->user();
+
+        if ($user->isOwner()) {
+            // Owner only sees their own branches
+            $branches = Branch::where('owner_id', $user->id)
+                ->withCount(['users', 'sales'])
+                ->orderBy('name')
+                ->get();
+        } else {
+            // Cashier/staff sees branches they are assigned to
+            $branches = Branch::where('id', $user->branch_id)
+                ->withCount(['users', 'sales'])
+                ->orderBy('name')
+                ->get();
+        }
 
         return view('branches.index', compact('branches'));
     }
@@ -36,7 +50,12 @@ class BranchController extends Controller
             'city' => 'nullable|string|max:100',
         ]);
 
-        Branch::create($request->all());
+        $data = $request->all();
+        if (auth()->user()->isOwner()) {
+            $data['owner_id'] = auth()->id();
+        }
+
+        Branch::create($data);
 
         return redirect()->route('branches.index')->with('success', 'Cabang berhasil ditambahkan!');
     }
@@ -77,7 +96,28 @@ class BranchController extends Controller
 
     public function stockOverview(Request $request, ?Branch $branch = null)
     {
-        $branches = Branch::where('is_active', true)->orderBy('name')->get();
+        $user = auth()->user();
+
+        if ($user->isOwner()) {
+            // Owner only sees their own branches in the selector
+            $branchesQuery = Branch::where('owner_id', $user->id)->where('is_active', true);
+            $branches = $branchesQuery->orderBy('name')->get();
+
+            // If specific branch requested, verify ownership
+            if ($branch && $branch->owner_id !== $user->id) {
+                abort(403, 'Anda tidak memiliki akses ke cabang ini.');
+            }
+        } else {
+            // Cashier only sees their assigned branch
+            $branchesQuery = Branch::where('id', $user->branch_id)->where('is_active', true);
+            $branches = $branchesQuery->orderBy('name')->get();
+
+            // If specific branch requested, verify it's the assigned branch
+            if ($branch && $branch->id !== $user->branch_id) {
+                abort(403, 'Anda tidak memiliki akses ke cabang ini.');
+            }
+        }
+
         $selectedBranch = $branch ?? $branches->first();
 
         if (! $selectedBranch) {
@@ -118,6 +158,13 @@ class BranchController extends Controller
 
     public function stockApi(Branch $branch)
     {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
+        // Verify branch belongs to user
+        if (! in_array($branch->id, $accessibleBranchIds)) {
+            abort(403, 'Anda tidak memiliki akses ke cabang ini.');
+        }
+
         $products = Product::with('category', 'branchStocks')
             ->whereHas('branchStocks', function ($query) use ($branch) {
                 $query->where('branch_id', $branch->id);
@@ -152,6 +199,13 @@ class BranchController extends Controller
 
     public function adjustStock(Request $request, Branch $branch, $item)
     {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
+        // Verify branch belongs to user
+        if (! in_array($branch->id, $accessibleBranchIds)) {
+            abort(403, 'Anda tidak memiliki akses ke cabang ini.');
+        }
+
         $request->validate([
             'type' => 'required|in:add,reduce',
             'quantity' => 'required|numeric|min:0.01',
@@ -170,8 +224,16 @@ class BranchController extends Controller
 
         if ($isProduct) {
             $product = Product::find($itemId);
+            // Verify product is accessible
+            if ($product && ! $product->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists()) {
+                abort(403, 'Anda tidak memiliki akses ke produk ini.');
+            }
         } elseif ($isMaterial) {
             $material = Material::find($itemId);
+            // Verify material is accessible
+            if ($material && ! $material->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists()) {
+                abort(403, 'Anda tidak memiliki akses ke bahan ini.');
+            }
         } else {
             // Fallback - check both
             $product = Product::find($item);
@@ -225,22 +287,35 @@ class BranchController extends Controller
 
     public function removeStock(Branch $branch, $item)
     {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
+        // Verify branch belongs to user
+        if (! in_array($branch->id, $accessibleBranchIds)) {
+            abort(403, 'Anda tidak memiliki akses ke cabang ini.');
+        }
+
         // Strip prefix if present
         $itemId = ltrim($item, 'pm');
 
         if (str_starts_with($item, 'p')) {
             $product = Product::find($itemId);
             if ($product) {
-                $product->branchStocks()->where('branch_id', $branch->id)->delete();
+                // Verify product belongs to accessible branches
+                if ($product->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists()) {
+                    $product->branchStocks()->where('branch_id', $branch->id)->delete();
 
-                return response()->json(['success' => true]);
+                    return response()->json(['success' => true]);
+                }
             }
         } elseif (str_starts_with($item, 'm')) {
             $material = Material::find($itemId);
             if ($material) {
-                $material->branchStocks()->where('branch_id', $branch->id)->delete();
+                // Verify material belongs to accessible branches
+                if ($material->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists()) {
+                    $material->branchStocks()->where('branch_id', $branch->id)->delete();
 
-                return response()->json(['success' => true]);
+                    return response()->json(['success' => true]);
+                }
             }
         }
 

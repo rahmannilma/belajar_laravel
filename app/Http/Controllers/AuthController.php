@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
+use App\Models\Category;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -57,12 +61,55 @@ class AuthController extends Controller
 
     public function showRegisterForm()
     {
-        // Only owner can register new users
-        if (! Auth::check() || ! Auth::user()->isOwner()) {
-            abort(403, 'Hanya pemilik yang dapat mendaftarkan pengguna baru.');
-        }
+        return view('auth.register-business');
+    }
 
-        return view('auth.register');
+    public function registerBusiness(Request $request)
+    {
+        $request->validate([
+            'owner_name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:6|confirmed',
+            'business_name' => 'required|string|max:255',
+            'business_address' => 'nullable|string|max:500',
+            'business_phone' => 'nullable|string|max:20',
+            'business_city' => 'nullable|string|max:100',
+        ]);
+
+        DB::transaction(function () use ($request) {
+            $user = User::create([
+                'name' => $request->owner_name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'role' => 'owner',
+                'branch_id' => null,
+                'is_active' => true,
+            ]);
+
+            $branch = Branch::create([
+                'name' => $request->business_name,
+                'address' => $request->business_address,
+                'phone' => $request->business_phone,
+                'city' => $request->business_city,
+                'is_active' => true,
+                'owner_id' => $user->id,
+            ]);
+
+            $user->update(['branch_id' => $branch->id]);
+
+            $defaultCategories = ['Makanan', 'Minuman', 'Lainnya'];
+            foreach ($defaultCategories as $categoryName) {
+                Category::create([
+                    'name' => $categoryName,
+                    'slug' => Str::slug($categoryName).'-'.$branch->id,
+                    'branch_id' => $branch->id,
+                ]);
+            }
+
+            Auth::login($user);
+        });
+
+        return redirect()->route('dashboard')->with('success', 'Selamat! Bisnis Anda telah dibuat.');
     }
 
     public function register(Request $request)

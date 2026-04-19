@@ -11,33 +11,38 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
         $today = Carbon::today();
         $startOfWeek = Carbon::now()->startOfWeek();
         $endOfWeek = Carbon::now()->endOfWeek();
         $startOfMonth = Carbon::now()->startOfMonth();
         $endOfMonth = Carbon::now()->endOfMonth();
 
-        // Today's statistics
-        $todaySales = Sale::today()->completed();
+        // Today's statistics (across all accessible branches)
+        $todaySales = Sale::today()->whereIn('branch_id', $accessibleBranchIds)->completed();
         $todayTotal = $todaySales->sum('total_amount');
         $todayProfit = $todaySales->sum('profit');
         $todayTransactions = $todaySales->count();
         $todayItems = $todaySales->withCount('items')->get()->sum('items_count');
 
         // Weekly statistics
-        $weeklySales = Sale::whereBetween('sale_date', [$startOfWeek, $endOfWeek])->completed();
+        $weeklySales = Sale::whereBetween('sale_date', [$startOfWeek, $endOfWeek])
+            ->whereIn('branch_id', $accessibleBranchIds)
+            ->completed();
         $weeklyTotal = $weeklySales->sum('total_amount');
         $weeklyProfit = $weeklySales->sum('profit');
         $weeklyTransactions = $weeklySales->count();
 
         // Monthly statistics
-        $monthlySales = Sale::whereBetween('sale_date', [$startOfMonth, $endOfMonth])->completed();
+        $monthlySales = Sale::whereBetween('sale_date', [$startOfMonth, $endOfMonth])
+            ->whereIn('branch_id', $accessibleBranchIds)
+            ->completed();
         $monthlyTotal = $monthlySales->sum('total_amount');
         $monthlyProfit = $monthlySales->sum('profit');
         $monthlyTransactions = $monthlySales->count();
 
-        // Branch summary for today - show all branches
-        $branches = Branch::where('is_active', true)->orderBy('name')->get();
+        // Branch summary for today - only user's branches
+        $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
         $branchSummaries = $branches->map(function ($branch) use ($today) {
             $sales = Sale::where('branch_id', $branch->id)->whereDate('sale_date', $today)->completed();
 
@@ -49,7 +54,7 @@ class DashboardController extends Controller
             ];
         });
 
-        // Branch data with today stats and total (all time) - show all branches
+        // Branch data with today stats and total (all time) - show accessible branches
         $branchData = $branches->map(function ($branch) use ($today) {
             $todaySales = Sale::where('branch_id', $branch->id)->whereDate('sale_date', $today)->completed();
             $todayTransactionCount = $todaySales->count();
@@ -68,20 +73,32 @@ class DashboardController extends Controller
             ];
         });
 
-        // Low stock products
-        $lowStockProducts = Product::lowStock()
-            ->with('category')
+        // Low stock products - only from accessible branches (where stock <= min_stock)
+        $lowStockProducts = Product::with('category')
+            ->whereHas('branchStocks', function ($q) use ($accessibleBranchIds) {
+                $q->whereIn('branch_id', $accessibleBranchIds)
+                    ->whereColumn('stock', '<=', 'min_stock');
+            })
             ->orderBy('stock', 'asc')
             ->limit(10)
             ->get();
 
-        // Chart data - Daily sales for the last 7 days
+        // Chart data - Daily sales for the last 7 days across accessible branches
         $last7Days = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = Carbon::today()->subDays($i);
-            $sales = Sale::whereDate('sale_date', $date)->completed()->sum('total_amount');
-            $profit = Sale::whereDate('sale_date', $date)->completed()->sum('profit');
-            $count = Sale::whereDate('sale_date', $date)->completed()->count();
+            $sales = Sale::whereDate('sale_date', $date)
+                ->whereIn('branch_id', $accessibleBranchIds)
+                ->completed()
+                ->sum('total_amount');
+            $profit = Sale::whereDate('sale_date', $date)
+                ->whereIn('branch_id', $accessibleBranchIds)
+                ->completed()
+                ->sum('profit');
+            $count = Sale::whereDate('sale_date', $date)
+                ->whereIn('branch_id', $accessibleBranchIds)
+                ->completed()
+                ->count();
 
             $last7Days[] = [
                 'date' => $date->format('d M'),
@@ -92,11 +109,13 @@ class DashboardController extends Controller
             ];
         }
 
-        // Top selling products today
+        // Top selling products today (from accessible branches)
         $topProducts = Product::withCount([
-            'saleItems' => function ($query) {
-                $query->whereHas('sale', function ($q) {
-                    $q->whereDate('sale_date', Carbon::today())->completed();
+            'saleItems' => function ($query) use ($accessibleBranchIds) {
+                $query->whereHas('sale', function ($q) use ($accessibleBranchIds) {
+                    $q->whereDate('sale_date', Carbon::today())
+                        ->whereIn('branch_id', $accessibleBranchIds)
+                        ->completed();
                 });
             },
         ])
@@ -104,12 +123,14 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        // Popular products (most sold this month)
+        // Popular products (most sold this month) from accessible branches
         $popularProducts = Product::withCount([
-            'saleItems' => function ($query) {
-                $query->whereHas('sale', function ($q) {
+            'saleItems' => function ($query) use ($accessibleBranchIds) {
+                $query->whereHas('sale', function ($q) use ($accessibleBranchIds) {
                     $q->whereMonth('sale_date', Carbon::now()->month)
-                        ->whereYear('sale_date', Carbon::now()->year)->completed();
+                        ->whereYear('sale_date', Carbon::now()->year)
+                        ->whereIn('branch_id', $accessibleBranchIds)
+                        ->completed();
                 });
             },
         ])
@@ -117,11 +138,13 @@ class DashboardController extends Controller
             ->limit(10)
             ->get();
 
-        // Category sales breakdown for today
+        // Category sales breakdown for today (accessible branches only)
         $categorySales = \App\Models\Category::with([
-            'products.saleItems' => function ($query) {
-                $query->whereHas('sale', function ($q) {
-                    $q->whereDate('sale_date', Carbon::today())->completed();
+            'products.saleItems' => function ($query) use ($accessibleBranchIds) {
+                $query->whereHas('sale', function ($q) use ($accessibleBranchIds) {
+                    $q->whereDate('sale_date', Carbon::today())
+                        ->whereIn('branch_id', $accessibleBranchIds)
+                        ->completed();
                 });
             },
         ])->get()->map(function ($category) {
@@ -135,15 +158,19 @@ class DashboardController extends Controller
             return $cat->products_sum_subtotal > 0;
         });
 
-        // Recent sales
+        // Recent sales from accessible branches
         $recentSales = Sale::with('user', 'items')
+            ->whereIn('branch_id', $accessibleBranchIds)
             ->completed()
             ->orderBy('sale_date', 'desc')
             ->limit(5)
             ->get();
 
-        // Revenue comparison (yesterday vs today)
-        $yesterdaySales = Sale::whereDate('sale_date', Carbon::yesterday())->completed()->sum('total_amount');
+        // Revenue comparison (yesterday vs today) across accessible branches
+        $yesterdaySales = Sale::whereDate('sale_date', Carbon::yesterday())
+            ->whereIn('branch_id', $accessibleBranchIds)
+            ->completed()
+            ->sum('total_amount');
         $todayComparison = $yesterdaySales > 0
             ? (($todayTotal - $yesterdaySales) / $yesterdaySales) * 100
             : ($todayTotal > 0 ? 100 : 0);

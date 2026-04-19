@@ -22,32 +22,35 @@ class UserController extends Controller
 
     public function index(Request $request)
     {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
         $users = User::query()
             ->with('branch')
+            ->whereIn('branch_id', $accessibleBranchIds)
             ->when($request->search, function ($query, $search) {
                 $query->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%");
             })
-            ->when($request->role, function ($query, $role) {
-                $query->where('role', $role);
-            })
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
-        $branches = \App\Models\Branch::where('is_active', true)->orderBy('name')->get();
+        $branches = \App\Models\Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
 
         return view('users.index', compact('users', 'branches'));
     }
 
     public function create()
     {
-        $branches = \App\Models\Branch::where('is_active', true)->orderBy('name')->get();
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+        $branches = \App\Models\Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
 
         return view('users.create', compact('branches'));
     }
 
     public function store(Request $request)
     {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
@@ -56,6 +59,11 @@ class UserController extends Controller
             'branch_id' => 'nullable|exists:branches,id',
             'is_active' => 'boolean',
         ]);
+
+        // Validate branch_id belongs to accessible branches if provided
+        if ($request->filled('branch_id') && ! in_array($request->branch_id, $accessibleBranchIds)) {
+            abort(403, 'Anda tidak memiliki akses ke cabang ini.');
+        }
 
         User::create([
             'name' => $request->name,
@@ -71,13 +79,27 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
-        $branches = \App\Models\Branch::where('is_active', true)->orderBy('name')->get();
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
+        // Ensure user being edited belongs to accessible branches
+        if ($user->branch_id && ! in_array($user->branch_id, $accessibleBranchIds)) {
+            abort(403, 'Anda tidak memiliki akses ke pengguna ini.');
+        }
+
+        $branches = \App\Models\Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
 
         return view('users.edit', compact('user', 'branches'));
     }
 
     public function update(Request $request, User $user)
     {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
+        // Ensure user being updated belongs to accessible branches
+        if ($user->branch_id && ! in_array($user->branch_id, $accessibleBranchIds)) {
+            abort(403, 'Anda tidak memiliki akses ke pengguna ini.');
+        }
+
         $rules = [
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,'.$user->id,
@@ -111,6 +133,13 @@ class UserController extends Controller
 
     public function destroy(User $user)
     {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
+        // Ensure user belongs to accessible branches
+        if ($user->branch_id && ! in_array($user->branch_id, $accessibleBranchIds)) {
+            abort(403, 'Anda tidak memiliki akses ke pengguna ini.');
+        }
+
         if ($user->id === auth()->id()) {
             return back()->with('error', 'Anda tidak dapat menghapus akun sendiri!');
         }

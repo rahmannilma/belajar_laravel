@@ -9,10 +9,24 @@
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Tambah Produk Baru</h2>
         </div>
 
-        <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data" class="p-6 space-y-6">
-            @csrf
+<form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data" class="p-6 space-y-6">
+    @csrf
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6" x-data='{
+        ingredients: @json(old('materials', [])),
+        materialsByBranch: @json($materialsByBranch),
+        selectedBranch: {{ old('branch_id') ?: 'null' }},
+        getFilteredMaterials() {
+            if (!this.selectedBranch) return [];
+            return this.materialsByBranch[this.selectedBranch] || [];
+        },
+        addIngredient() {
+            this.ingredients.push({ material_id: "", quantity: "" });
+        },
+        removeIngredient(index) {
+            this.ingredients.splice(index, 1);
+        }
+    }'>
                 <!-- Name -->
                 <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nama Produk *</label>
@@ -84,7 +98,7 @@
                 <!-- Branch Stock -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Stok Cabin *</label>
-                    <select name="branch_id" 
+                    <select name="branch_id" x-model="selectedBranch"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white @error('branch_id') border-red-500 @enderror">
                         <option value="">Pilih Cabin</option>
                         @foreach($branches as $branch)
@@ -134,15 +148,7 @@
                 </div>
 
                 <!-- materials -->
-                <div class="md:col-span-2 space-y-4" x-data="{ 
-                    ingredients: [],
-                    addIngredient() {
-                        this.ingredients.push({ material_id: '', quantity: '' });
-                    },
-                    removeIngredient(index) {
-                        this.ingredients.splice(index, 1);
-                    }
-                }">
+                <div class="md:col-span-2 space-y-4">
                     <div class="flex items-center justify-between">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Komposisi Bahan (Resep / Takaran)</label>
                         <button type="button" @click="addIngredient()" class="text-sm text-teal-600 hover:text-teal-500 font-medium flex items-center">
@@ -157,25 +163,28 @@
                         <template x-for="(ingredient, index) in ingredients" :key="index">
                             <div class="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
                                 <div class="flex-1">
-                                    <select :name="'materials[' + ingredient.material_id + '][quantity]'" 
+                                    <select :name="'materials[' + (ingredient.material_id || index) + '][quantity]'" 
                                         x-model="ingredient.material_id"
                                         required
                                         class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm">
                                         <option value="">Pilih Bahan</option>
-                                        @foreach($materials as $material)
-                                        <option value="{{ $material->id }}">{{ $material->name }} ({{ $material->unit }})</option>
-                                        @endforeach
+                                        <template x-for="material in getFilteredMaterials()" :key="material.id">
+                                            <option :value="material.id" x-text="material.name + ' (' + material.unit + ')'"></option>
+                                        </template>
                                     </select>
+                                    <!-- Hidden input to ensure material_id is sent -->
+                                    <input type="hidden" :name="'materials[' + (ingredient.material_id || index) + '][material_id]'" :value="ingredient.material_id">
                                 </div>
                                 <div class="w-32">
                                     <div class="relative">
                                         <input type="number" step="0.01" 
-                                            :name="'materials[' + ingredient.material_id + '][quantity]'"
+                                            :name="'materials[' + (ingredient.material_id || index) + '][quantity]'"
                                             x-model="ingredient.quantity"
                                             required min="0.01"
                                             placeholder="Takaran"
                                             class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm pr-10">
-                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500" x-text="document.querySelector('select[x-model=\'ingredient.material_id\'] option[value=\'' + ingredient.material_id + '\']')?.innerText.split('(').pop().replace(')', '') || ''"></span>
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500" 
+                                            x-text="document.querySelector('select[x-model=\'ingredient.material_id\'] option[value=\'' + ingredient.material_id + '\']')?.innerText?.split('(').pop()?.replace(')', '') || ''"></span>
                                     </div>
                                 </div>
                                 <button type="button" @click="removeIngredient(index)" class="text-red-500 hover:text-red-600 p-1">

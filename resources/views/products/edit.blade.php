@@ -118,15 +118,15 @@
                 </div>
 
                 <!-- materials -->
-                <div class="md:col-span-2 space-y-4" x-data="{ 
-                    ingredients: {{ $product->materials->map(fn($m) => ['material_id' => $m->id, 'quantity' => (float)$m->pivot->quantity])->toJson() }},
+                <div class="md:col-span-2 space-y-4" x-data='{
+                    ingredients: @json($product->materials->map(fn($m) => ["material_id" => $m->id, "quantity" => (float)$m->pivot->quantity])),
                     addIngredient() {
-                        this.ingredients.push({ material_id: '', quantity: '' });
+                        this.ingredients.push({ material_id: "", quantity: "" });
                     },
                     removeIngredient(index) {
                         this.ingredients.splice(index, 1);
                     }
-                }">
+                }'>
                     <div class="flex items-center justify-between">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Komposisi Bahan (Resep / Takaran)</label>
                         <button type="button" @click="addIngredient()" class="text-sm text-teal-600 hover:text-teal-500 font-medium flex items-center">

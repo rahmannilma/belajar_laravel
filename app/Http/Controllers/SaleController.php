@@ -12,13 +12,18 @@ class SaleController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
-        $query = Sale::with('user', 'items', 'branch')->completed();
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
 
-        // Branch filter - owner can filter by branch, cashier sees their branch only
-        if ($user->isOwner() && $request->branch) {
-            $query->where('branch_id', $request->branch);
-        } elseif (! $user->isOwner() && $user->branch_id) {
-            $query->where('branch_id', $user->branch_id);
+        $query = Sale::with('user', 'items', 'branch')
+            ->whereIn('branch_id', $accessibleBranchIds)
+            ->completed();
+
+        // Branch filter
+        if ($request->branch) {
+            // Verify branch is accessible
+            if (in_array($request->branch, $accessibleBranchIds)) {
+                $query->where('branch_id', $request->branch);
+            }
         }
 
         // Date filters
@@ -63,15 +68,16 @@ class SaleController extends Controller
 
         $sales = $query->orderBy('sale_date', 'desc')->paginate(20);
 
-        // Branches for filter (owner only)
-        $branches = $user->isOwner() ? Branch::orderBy('name')->get() : collect();
+        // Branches for filter (only accessible ones)
+        $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
 
         return view('sales.index', compact('sales', 'totalAmount', 'totalProfit', 'totalTransactions', 'branches'));
     }
 
     public function overview(Request $request)
     {
-        $branches = Branch::where('is_active', true)->orderBy('name')->get();
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+        $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
 
         // Date filters
         $startDate = $request->start_date ? Carbon::parse($request->start_date)->startOfDay() : Carbon::today()->startOfDay();
@@ -96,7 +102,7 @@ class SaleController extends Controller
         });
 
         // Overall summary
-        $overallSales = Sale::whereBetween('sale_date', [$startDate, $endDate]);
+        $overallSales = Sale::whereIn('branch_id', $accessibleBranchIds)->whereBetween('sale_date', [$startDate, $endDate]);
         $overallCount = (clone $overallSales)->count();
         $overallTotal = (clone $overallSales)->sum('total_amount');
         $overallProfit = (clone $overallSales)->sum('profit');
@@ -107,6 +113,13 @@ class SaleController extends Controller
 
     public function show(Sale $sale)
     {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
+        // Verify sale belongs to accessible branch
+        if (! in_array($sale->branch_id, $accessibleBranchIds)) {
+            abort(403, 'Anda tidak memiliki akses ke transaksi ini.');
+        }
+
         $sale->load('user', 'items.product');
 
         return view('sales.show', compact('sale'));
@@ -116,8 +129,10 @@ class SaleController extends Controller
     {
         $date = $request->get('date', Carbon::today()->format('Y-m-d'));
         $parsedDate = Carbon::parse($date);
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
 
         $sales = Sale::with('user', 'items')
+            ->whereIn('branch_id', $accessibleBranchIds)
             ->whereDate('sale_date', $parsedDate)
             ->orderBy('sale_date', 'desc')
             ->get();
@@ -139,9 +154,7 @@ class SaleController extends Controller
         });
 
         // Top products sold
-        $topProducts = \App\Models\SaleItem::whereHas('sale', function ($query) use ($parsedDate) {
-            $query->whereDate('sale_date', $parsedDate);
-        })
+        $topProducts = \App\Models\SaleItem::whereIn('sale_id', $sales->pluck('id'))
             ->selectRaw('product_id, product_name, SUM(quantity) as total_qty, SUM(subtotal) as total_sales')
             ->groupBy('product_id', 'product_name')
             ->orderBy('total_qty', 'desc')
@@ -176,11 +189,13 @@ class SaleController extends Controller
     {
         $startDate = $request->get('start_date', Carbon::now()->startOfWeek()->format('Y-m-d'));
         $endDate = $request->get('end_date', Carbon::now()->endOfWeek()->format('Y-m-d'));
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
 
         $start = Carbon::parse($startDate)->startOfDay();
         $end = Carbon::parse($endDate)->endOfDay();
 
         $sales = Sale::with('user', 'items')
+            ->whereIn('branch_id', $accessibleBranchIds)
             ->whereBetween('sale_date', [$start, $end])
             ->orderBy('sale_date', 'desc')
             ->get();
@@ -208,9 +223,7 @@ class SaleController extends Controller
         }
 
         // Top products
-        $topProducts = \App\Models\SaleItem::whereHas('sale', function ($query) use ($start, $end) {
-            $query->whereBetween('sale_date', [$start, $end]);
-        })
+        $topProducts = \App\Models\SaleItem::whereIn('sale_id', $sales->pluck('id'))
             ->selectRaw('product_id, product_name, SUM(quantity) as total_qty, SUM(subtotal) as total_sales')
             ->groupBy('product_id', 'product_name')
             ->orderBy('total_qty', 'desc')
@@ -237,10 +250,13 @@ class SaleController extends Controller
             'end_date' => 'required|date|after_or_equal:start_date',
         ]);
 
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
         $start = Carbon::parse($request->start_date)->startOfDay();
         $end = Carbon::parse($request->end_date)->endOfDay();
 
         $sales = Sale::with('user', 'items')
+            ->whereIn('branch_id', $accessibleBranchIds)
             ->whereBetween('sale_date', [$start, $end])
             ->orderBy('sale_date', 'desc')
             ->get();
@@ -300,9 +316,11 @@ class SaleController extends Controller
     public function printDailyReport(Request $request)
     {
         $date = $request->get('date', Carbon::today()->format('Y-m-d'));
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
 
         $parsedDate = Carbon::parse($date);
         $sales = Sale::with('user', 'items')
+            ->whereIn('branch_id', $accessibleBranchIds)
             ->whereDate('sale_date', $parsedDate)
             ->orderBy('sale_date', 'desc')
             ->get();
@@ -316,14 +334,17 @@ class SaleController extends Controller
     public function destroy(Sale $sale)
     {
         $user = auth()->user();
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
+        // Verify sale belongs to accessible branch
+        if (! in_array($sale->branch_id, $accessibleBranchIds)) {
+            abort(403, 'Anda tidak memiliki akses ke transaksi ini.');
+        }
 
         // Owner can delete any sale, cashier can only delete cancelled sales from their branch
         if (! $user->isOwner()) {
             if (! $sale->isCancelled()) {
                 abort(403, 'Gunakan fitur batalkan untuk membatalkan transaksi!');
-            }
-            if ($sale->branch_id !== $user->branch_id) {
-                abort(403, 'Anda tidak dapat menghapus transaksi cabang lain!');
             }
         }
 
@@ -341,9 +362,10 @@ class SaleController extends Controller
     public function cancel(Sale $sale)
     {
         $user = auth()->user();
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
 
-        // Owner can cancel any sale, cashier can only cancel sales from their branch
-        if (! $user->isOwner() && $sale->branch_id !== $user->branch_id) {
+        // Verify sale belongs to accessible branch
+        if (! in_array($sale->branch_id, $accessibleBranchIds)) {
             abort(403, 'Anda tidak dapat membatalkan transaksi cabang lain!');
         }
 
@@ -387,9 +409,10 @@ class SaleController extends Controller
     public function branchTransactions(Request $request)
     {
         $user = auth()->user();
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
 
-        // Owner sees all branches
-        $branches = Branch::orderBy('name')->get();
+        // Branches for filter - only accessible ones
+        $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
 
         $startDate = $request->start_date ? Carbon::parse($request->start_date)->startOfDay() : null;
         $endDate = $request->end_date ? Carbon::parse($request->end_date)->endOfDay() : Carbon::now()->endOfDay();
@@ -398,10 +421,12 @@ class SaleController extends Controller
 
         // Branch filter
         if ($request->branch_id) {
-            $query->where('branch_id', $request->branch_id);
-        } elseif (! $user->isOwner() && $user->branch_id) {
-            // Cashier sees only their branch
-            $query->where('branch_id', $user->branch_id);
+            if (in_array($request->branch_id, $accessibleBranchIds)) {
+                $query->where('branch_id', $request->branch_id);
+            }
+        } else {
+            // Default to accessible branches
+            $query->whereIn('branch_id', $accessibleBranchIds);
         }
 
         if ($startDate) {

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Branch;
 use App\Models\Material;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class MaterialController extends Controller
 {
@@ -21,7 +22,12 @@ class MaterialController extends Controller
 
     public function index(Request $request)
     {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
         $materials = Material::with('branchStocks.branch')
+            ->whereHas('branchStocks', function ($q) use ($accessibleBranchIds) {
+                $q->whereIn('branch_id', $accessibleBranchIds);
+            })
             ->when($request->search, function ($query, $search) {
                 $query->search($search);
             })
@@ -30,41 +36,62 @@ class MaterialController extends Controller
                     $q->where('branch_id', $branch);
                 });
             })
-            ->when($request->stock_status, function ($query, $status) {
-                if ($status === 'low') {
-                    $query->lowStock();
-                } elseif ($status === 'out') {
-                    $query->where('stock', 0);
-                } elseif ($status === 'available') {
-                    $query->where('stock', '>', 0);
+            ->when($request->stock_status, function ($query, $status) use ($request) {
+                $branchId = $request->branch ?: $request->input('branch');
+
+                if ($branchId) {
+                    if ($status === 'low') {
+                        $query->whereHas('branchStocks', fn ($q) => $q->where('branch_id', $branchId)->whereColumn('stock', '<=', 'materials.min_stock'));
+                    } elseif ($status === 'out') {
+                        $query->whereHas('branchStocks', fn ($q) => $q->where('branch_id', $branchId)->where('stock', 0));
+                    } elseif ($status === 'available') {
+                        $query->whereHas('branchStocks', fn ($q) => $q->where('branch_id', $branchId)->where('stock', '>', 0));
+                    }
+                } else {
+                    if ($status === 'low') {
+                        $query->lowStock();
+                    } elseif ($status === 'out') {
+                        $query->where('stock', 0);
+                    } elseif ($status === 'available') {
+                        $query->where('stock', '>', 0);
+                    }
                 }
             })
             ->orderBy('name')
             ->paginate(15);
 
-        $branches = Branch::where('is_active', true)->orderBy('name')->get();
+        $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
 
         return view('materials.index', compact('materials', 'branches'));
     }
 
     public function create()
     {
-        $branches = Branch::where('is_active', true)->orderBy('name')->get();
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+        $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
 
         return view('materials.create', compact('branches'));
     }
 
     public function store(Request $request)
     {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
         $request->validate([
             'name' => 'required|string|max:255',
             'unit' => 'required|string|max:50',
             'stock' => 'required|numeric|min:0',
             'min_stock' => 'required|numeric|min:0',
             'purchase_price' => 'required|numeric|min:0',
+            'branch_id' => 'nullable|exists:branches,id',
         ]);
 
-        $material = Material::create($request->all());
+        // Validate branch_id belongs to accessible branches if provided
+        if ($request->filled('branch_id') && ! in_array($request->branch_id, $accessibleBranchIds)) {
+            abort(403, 'Anda tidak memiliki akses ke cabang ini.');
+        }
+
+        $material = Material::create($request->except('branch_id'));
 
         // Save branch stock if selected
         if ($request->filled('branch_id')) {
@@ -77,13 +104,43 @@ class MaterialController extends Controller
         return redirect()->route('materials.index')->with('success', 'Bahan berhasil ditambahkan!');
     }
 
+    public function show(Material $material)
+    {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+        $hasAccess = $material->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists();
+
+        if (! $hasAccess) {
+            abort(403, 'Anda tidak memiliki akses ke bahan ini.');
+        }
+
+        $material->load('branchStocks.branch');
+
+        return view('materials.show', compact('material'));
+    }
+
     public function edit(Material $material)
     {
-        return view('materials.edit', compact('material'));
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+        $hasAccess = $material->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists();
+
+        if (! $hasAccess) {
+            abort(403, 'Anda tidak memiliki akses ke bahan ini.');
+        }
+
+        $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
+
+        return view('materials.edit', compact('material', 'branches'));
     }
 
     public function update(Request $request, Material $material)
     {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
+        $hasAccess = $material->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists();
+        if (! $hasAccess) {
+            abort(403, 'Anda tidak memiliki akses ke bahan ini.');
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'unit' => 'required|string|max:50',
@@ -94,13 +151,32 @@ class MaterialController extends Controller
 
         $material->update($request->all());
 
+        // Update or create branch stock if branch_id provided
+        if ($request->filled('branch_id')) {
+            if (! in_array($request->branch_id, $accessibleBranchIds)) {
+                abort(403, 'Anda tidak memiliki akses ke cabang ini.');
+            }
+            $material->branchStocks()->updateOrCreate(
+                ['branch_id' => $request->branch_id],
+                ['stock' => $request->stock]
+            );
+        }
+
         return redirect()->route('materials.index')->with('success', 'Bahan berhasil diperbarui!');
     }
 
     public function destroy(Material $material)
     {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+        $hasAccess = $material->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists();
+
+        if (! $hasAccess) {
+            abort(403, 'Anda tidak memiliki akses ke bahan ini.');
+        }
+
+        // Check if material is used in any products
         if ($material->products()->exists()) {
-            return back()->with('error', 'Bahan tidak dapat dihapus karena digunakan oleh beberapa produk!');
+            return back()->with('error', 'Bahan tidak dapat dihapus karena masih digunakan di produk!');
         }
 
         $material->delete();
@@ -110,20 +186,49 @@ class MaterialController extends Controller
 
     public function adjustStock(Request $request, Material $material)
     {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
+        $hasAccess = $material->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists();
+        if (! $hasAccess) {
+            abort(403, 'Anda tidak memiliki akses ke bahan ini.');
+        }
+
         $request->validate([
             'type' => 'required|in:add,reduce',
-            'quantity' => 'required|numeric|min:0.01',
+            'quantity' => 'required|integer|min:1',
             'reason' => 'nullable|string|max:255',
+            'branch_id' => 'nullable|exists:branches,id',
         ]);
 
+        if ($request->filled('branch_id') && ! in_array($request->branch_id, $accessibleBranchIds)) {
+            abort(403, 'Anda tidak memiliki akses ke cabang ini.');
+        }
+
         if ($request->type === 'add') {
-            $material->increment('stock', $request->quantity);
+            if ($request->filled('branch_id')) {
+                $material->branchStocks()->updateOrCreate(
+                    ['branch_id' => $request->branch_id],
+                    ['stock' => DB::raw('stock + '.$request->quantity)]
+                );
+            } else {
+                $material->increment('stock', $request->quantity);
+            }
             $message = "Stok {$material->name} ditambah {$request->quantity} {$material->unit}.";
         } else {
-            if ($material->stock < $request->quantity) {
-                return back()->with('error', 'Stok tidak mencukupi!');
+            if ($request->filled('branch_id')) {
+                $branchStock = $material->branchStocks()->where('branch_id', $request->branch_id)->first();
+                if ($branchStock && $branchStock->stock < $request->quantity) {
+                    return back()->with('error', 'Stok tidak mencukupi di cabang tersebut!');
+                }
+                if ($branchStock) {
+                    $branchStock->decrement('stock', $request->quantity);
+                }
+            } else {
+                if ($material->stock < $request->quantity) {
+                    return back()->with('error', 'Stok tidak mencukupi!');
+                }
+                $material->decrement('stock', $request->quantity);
             }
-            $material->decrement('stock', $request->quantity);
             $message = "Stok {$material->name} dikurangi {$request->quantity} {$material->unit}.";
         }
 
@@ -132,10 +237,17 @@ class MaterialController extends Controller
 
     public function branchStock(Request $request, Material $material)
     {
-        $branches = Branch::where('is_active', true)->orderBy('name')->get();
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
+        $hasAccess = $material->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists();
+        if (! $hasAccess) {
+            abort(403, 'Anda tidak memiliki akses ke bahan ini.');
+        }
+
+        $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
 
         if ($request->ajax()) {
-            return response()->json($material->branchStocks()->with('branch')->get());
+            return response()->json($material->branchStocks()->with('branch')->whereIn('branch_id', $accessibleBranchIds)->get());
         }
 
         return view('materials.branch-stock', compact('material', 'branches'));
@@ -143,10 +255,16 @@ class MaterialController extends Controller
 
     public function updateBranchStock(Request $request, Material $material)
     {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
         $request->validate([
             'branch_id' => 'required|exists:branches,id',
-            'stock' => 'required|numeric|min:0',
+            'stock' => 'required|integer|min:0',
         ]);
+
+        if (! in_array($request->branch_id, $accessibleBranchIds)) {
+            abort(403, 'Anda tidak memiliki akses ke cabang ini.');
+        }
 
         $material->branchStocks()->updateOrCreate(
             ['branch_id' => $request->branch_id],
@@ -158,13 +276,18 @@ class MaterialController extends Controller
 
     public function bulkBranchStock(Request $request, Material $material)
     {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
         $request->validate([
             'stocks' => 'required|array',
             'stocks.*.branch_id' => 'required|exists:branches,id',
-            'stocks.*.stock' => 'required|numeric|min:0',
+            'stocks.*.stock' => 'required|integer|min:0',
         ]);
 
         foreach ($request->stocks as $stockData) {
+            if (! in_array($stockData['branch_id'], $accessibleBranchIds)) {
+                abort(403, 'Anda tidak memiliki akses ke salah satu cabang.');
+            }
             $material->branchStocks()->updateOrCreate(
                 ['branch_id' => $stockData['branch_id']],
                 ['stock' => $stockData['stock']]

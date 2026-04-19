@@ -73,7 +73,14 @@
                 </div>
             </form>
 
-            <div class="mt-6">
+            <div class="mt-6 text-center">
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    Belum punya bisnis?
+                    <a href="{{ route('register.business') }}" class="font-medium text-teal-600 hover:text-teal-500 dark:text-teal-400 dark:hover:text-teal-300">
+                        Daftar bisnis baru
+                    </a>
+                </p>
+            </div>
                 <div class="relative">
                     <div class="absolute inset-0 flex items-center">
                         <div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
