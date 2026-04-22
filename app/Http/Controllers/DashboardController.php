@@ -73,15 +73,31 @@ class DashboardController extends Controller
             ];
         });
 
-        // Low stock products - only from accessible branches (where stock <= min_stock)
-        $lowStockProducts = Product::with('category')
+        // Low stock products - only from accessible branches
+        $lowStockProducts = Product::with('category', 'branchStocks', 'materials')
             ->whereHas('branchStocks', function ($q) use ($accessibleBranchIds) {
-                $q->whereIn('branch_id', $accessibleBranchIds)
-                    ->whereColumn('stock', '<=', 'min_stock');
+                $q->whereIn('branch_id', $accessibleBranchIds);
             })
             ->orderBy('stock', 'asc')
             ->limit(10)
-            ->get();
+            ->get()
+            ->map(function ($product) use ($accessibleBranchIds) {
+                $branchId = $accessibleBranchIds[0] ?? null;
+                $stock = $product->stock;
+                if ($branchId && $product->hasMaterials()) {
+                    $calculated = $product->calculateStockFromMaterials($branchId);
+                    if ($calculated !== null) {
+                        $stock = $calculated;
+                    }
+                }
+                $product->display_stock = $stock;
+
+                return $product;
+            })
+            ->filter(function ($product) {
+                return $product->display_stock <= $product->min_stock;
+            })
+            ->values();
 
         // Chart data - Daily sales for the last 7 days across accessible branches
         $last7Days = [];
@@ -110,30 +126,26 @@ class DashboardController extends Controller
         }
 
         // Top selling products today (from accessible branches)
-        $topProducts = Product::withCount([
-            'saleItems' => function ($query) use ($accessibleBranchIds) {
-                $query->whereHas('sale', function ($q) use ($accessibleBranchIds) {
-                    $q->whereDate('sale_date', Carbon::today())
-                        ->whereIn('branch_id', $accessibleBranchIds)
-                        ->completed();
-                });
-            },
-        ])
+        $topProducts = Product::select('products.*')
+            ->whereHas('saleItems.sale', function ($q) use ($accessibleBranchIds) {
+                $q->whereDate('sale_date', Carbon::today())
+                    ->whereIn('branch_id', $accessibleBranchIds)
+                    ->where('status', 'completed');
+            })
+            ->withCount('saleItems')
             ->orderBy('sale_items_count', 'desc')
             ->limit(5)
             ->get();
 
         // Popular products (most sold this month) from accessible branches
-        $popularProducts = Product::withCount([
-            'saleItems' => function ($query) use ($accessibleBranchIds) {
-                $query->whereHas('sale', function ($q) use ($accessibleBranchIds) {
-                    $q->whereMonth('sale_date', Carbon::now()->month)
-                        ->whereYear('sale_date', Carbon::now()->year)
-                        ->whereIn('branch_id', $accessibleBranchIds)
-                        ->completed();
-                });
-            },
-        ])
+        $popularProducts = Product::select('products.*')
+            ->whereHas('saleItems.sale', function ($q) use ($accessibleBranchIds) {
+                $q->whereMonth('sale_date', Carbon::now()->month)
+                    ->whereYear('sale_date', Carbon::now()->year)
+                    ->whereIn('branch_id', $accessibleBranchIds)
+                    ->where('status', 'completed');
+            })
+            ->withCount('saleItems')
             ->orderBy('sale_items_count', 'desc')
             ->limit(10)
             ->get();

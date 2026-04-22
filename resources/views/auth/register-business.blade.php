@@ -149,7 +149,7 @@
                     </div>
                 </div>
 
-                <div>
+                <div class="mt-6">
                     <button type="submit" 
                         class="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-semibold text-white bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-all duration-200">
                         Buat Bisnis Saya

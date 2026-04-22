@@ -97,7 +97,7 @@ class AuthController extends Controller
 
             $user->update(['branch_id' => $branch->id]);
 
-            $defaultCategories = ['Makanan', 'Minuman', 'Lainnya'];
+            $defaultCategories = [];
             foreach ($defaultCategories as $categoryName) {
                 Category::create([
                     'name' => $categoryName,

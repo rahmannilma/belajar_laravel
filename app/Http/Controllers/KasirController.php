@@ -53,11 +53,21 @@ class KasirController extends Controller
             })
             ->values();
 
-        $categories = \App\Models\Category::whereHas('products', function ($query) use ($branchId) {
-            $query->whereHas('branchStocks', function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId);
-            });
-        })->withCount('products')->get();
+        $categories = \App\Models\Category::whereHas('products.branchStocks', function ($q) use ($branchId) {
+            $q->where('branch_id', $branchId)->where('stock', '>', 0);
+        })
+            ->with(['products' => function ($query) use ($branchId) {
+                $query->active()
+                    ->whereHas('branchStocks', function ($q) use ($branchId) {
+                        $q->where('branch_id', $branchId)->where('stock', '>', 0);
+                    })
+                    ->orderBy('name');
+            }])
+            ->get()
+            ->filter(function ($category) {
+                return $category->products->count() > 0;
+            })
+            ->values();
 
         $hasAnyStock = \App\Models\ProductBranchStock::where('branch_id', $branchId)->exists();
 

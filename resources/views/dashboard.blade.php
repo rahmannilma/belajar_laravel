@@ -243,8 +243,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </div>
                         <div class="text-right">
-                            <p class="text-sm font-semibold text-red-600 dark:text-red-400">{{ intval($product->stock) }}</p>
+                            <p class="text-sm font-semibold text-red-600 dark:text-red-400">{{ intval($product->display_stock) }}</p>
                             <p class="text-xs text-gray-500 dark:text-gray-400">min: {{ intval($product->min_stock) }}</p>
+                            @if($product->hasMaterials())
+                            <span class="text-xs text-green-500">(dari bahan)</span>
+                            @endif
                         </div>
                     </div>
                     @endforeach

@@ -22,19 +22,37 @@ class UserController extends Controller
 
     public function index(Request $request)
     {
+        $user = auth()->user();
         $accessibleBranchIds = $this->getAccessibleBranchIds();
 
-        $users = User::query()
-            ->with('branch')
-            ->whereIn('branch_id', $accessibleBranchIds)
-            ->when($request->search, function ($query, $search) {
-                $query->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
-            })
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
+        // If owner has no branches yet (super admin), show all users
+        if ($user->isOwner() && empty($accessibleBranchIds)) {
+            $users = User::query()
+                ->with('branch')
+                ->when($request->search, function ($query, $search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                })
+                ->orderBy('created_at', 'desc')
+                ->paginate(10);
 
-        $branches = \App\Models\Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
+            $branches = \App\Models\Branch::where('is_active', true)->orderBy('name')->get();
+        } else {
+            $users = User::query()
+                ->with('branch')
+                ->where(function ($query) use ($accessibleBranchIds) {
+                    $query->whereIn('branch_id', $accessibleBranchIds)
+                        ->orWhereNull('branch_id');
+                })
+                ->when($request->search, function ($query, $search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                })
+                ->orderBy('created_at', 'desc')
+                ->paginate(10);
+
+            $branches = \App\Models\Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
+        }
 
         return view('users.index', compact('users', 'branches'));
     }

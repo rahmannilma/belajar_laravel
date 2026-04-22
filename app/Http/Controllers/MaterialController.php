@@ -67,10 +67,7 @@ class MaterialController extends Controller
 
     public function create()
     {
-        $accessibleBranchIds = $this->getAccessibleBranchIds();
-        $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
-
-        return view('materials.create', compact('branches'));
+        return view('materials.create');
     }
 
     public function store(Request $request)
@@ -80,28 +77,13 @@ class MaterialController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'unit' => 'required|string|max:50',
-            'stock' => 'required|numeric|min:0',
             'min_stock' => 'required|numeric|min:0',
             'purchase_price' => 'required|numeric|min:0',
-            'branch_id' => 'nullable|exists:branches,id',
         ]);
 
-        // Validate branch_id belongs to accessible branches if provided
-        if ($request->filled('branch_id') && ! in_array($request->branch_id, $accessibleBranchIds)) {
-            abort(403, 'Anda tidak memiliki akses ke cabang ini.');
-        }
+        $material = Material::create($request->all());
 
-        $material = Material::create($request->except('branch_id'));
-
-        // Save branch stock if selected
-        if ($request->filled('branch_id')) {
-            $material->branchStocks()->create([
-                'branch_id' => $request->branch_id,
-                'stock' => $request->stock,
-            ]);
-        }
-
-        return redirect()->route('materials.index')->with('success', 'Bahan berhasil ditambahkan!');
+        return redirect()->route('materials.branch-stock', $material)->with('success', 'Bahan berhasil ditambahkan! Silakan isi stok cabin.');
     }
 
     public function show(Material $material)
@@ -239,8 +221,10 @@ class MaterialController extends Controller
     {
         $accessibleBranchIds = $this->getAccessibleBranchIds();
 
-        $hasAccess = $material->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists();
-        if (! $hasAccess) {
+        $hasExistingStock = $material->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists();
+
+        // Allow access if user has existing stock OR if this is a new material (no branch stocks yet)
+        if (! $hasExistingStock && $material->branchStocks()->count() > 0) {
             abort(403, 'Anda tidak memiliki akses ke bahan ini.');
         }
 
@@ -281,7 +265,7 @@ class MaterialController extends Controller
         $request->validate([
             'stocks' => 'required|array',
             'stocks.*.branch_id' => 'required|exists:branches,id',
-            'stocks.*.stock' => 'required|integer|min:0',
+            'stocks.*.stock' => 'required|numeric|min:0',
         ]);
 
         foreach ($request->stocks as $stockData) {
@@ -294,6 +278,6 @@ class MaterialController extends Controller
             );
         }
 
-        return back()->with('success', 'Stok semua cabang berhasil diperbarui!');
+        return redirect()->route('materials.index')->with('success', 'Stok semua cabang berhasil diperbarui!');
     }
 }

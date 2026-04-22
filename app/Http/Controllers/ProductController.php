@@ -30,8 +30,8 @@ class ProductController extends Controller
         $accessibleBranchIds = $this->getAccessibleBranchIds();
 
         $products = Product::with('category', 'branchStocks.branch')
-            ->whereHas('branchStocks', function ($q) use ($accessibleBranchIds) {
-                $q->whereIn('branch_id', $accessibleBranchIds);
+            ->whereHas('category.branch', function ($q) use ($accessibleBranchIds) {
+                $q->whereIn('branches.id', $accessibleBranchIds);
             })
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
@@ -73,7 +73,7 @@ class ProductController extends Controller
     {
         $accessibleBranchIds = $this->getAccessibleBranchIds();
         $categories = Category::whereIn('branch_id', $accessibleBranchIds)->orderBy('name')->get();
-        $branches = $this->getAccessibleBranches()->where('is_active', true);
+        $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
 
         // Load materials with their branch stocks for accessible branches
         $materials = Material::with(['branchStocks' => function ($q) use ($accessibleBranchIds) {
@@ -103,8 +103,6 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        $accessibleBranchIds = $this->getAccessibleBranchIds();
-
         $request->validate([
             'name' => 'required|string|max:255',
             'sku' => 'nullable|string|unique:products,sku',
@@ -112,18 +110,12 @@ class ProductController extends Controller
             'category_id' => 'required|exists:categories,id',
             'purchase_price' => 'required|numeric|min:0',
             'selling_price' => 'required|numeric|min:0',
-            'stock' => 'required|integer|min:0',
             'min_stock' => 'required|integer|min:0',
             'description' => 'nullable|string',
             'image' => 'nullable|image|max:2048',
             'is_active' => 'boolean',
             'branch_id' => 'nullable|exists:branches,id',
         ]);
-
-        // Validate branch_id belongs to accessible branches if provided
-        if ($request->filled('branch_id') && ! in_array($request->branch_id, $accessibleBranchIds)) {
-            abort(403, 'Anda tidak memiliki akses ke cabang ini.');
-        }
 
         $data = $request->except('image');
 
@@ -138,14 +130,6 @@ class ProductController extends Controller
 
         $product = Product::create($data);
 
-        // Save branch stock if selected
-        if ($request->filled('branch_id')) {
-            $product->branchStocks()->create([
-                'branch_id' => $request->branch_id,
-                'stock' => $data['stock'],
-            ]);
-        }
-
         // Sync materials
         if ($request->has('materials')) {
             $syncData = [];
@@ -157,7 +141,7 @@ class ProductController extends Controller
             $product->materials()->sync($syncData);
         }
 
-        return redirect()->route('products.index')->with('success', 'Produk berhasil ditambahkan!');
+        return redirect()->route('products.branch-stock', $product)->with('success', 'Produk berhasil ditambahkan! Silakan isi stok cabin.');
     }
 
     public function show(Product $product)
@@ -171,8 +155,8 @@ class ProductController extends Controller
     {
         $accessibleBranchIds = $this->getAccessibleBranchIds();
 
-        // Verify product belongs to one of user's accessible branches
-        $hasAccess = $product->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists();
+        // Verify product's category belongs to one of user's accessible branches
+        $hasAccess = $product->category()->whereIn('branch_id', $accessibleBranchIds)->exists();
         if (! $hasAccess) {
             abort(403, 'Anda tidak memiliki akses ke produk ini.');
         }
@@ -196,8 +180,8 @@ class ProductController extends Controller
     {
         $accessibleBranchIds = $this->getAccessibleBranchIds();
 
-        // Verify product belongs to accessible branches
-        $hasAccess = $product->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists();
+        // Verify product's category belongs to accessible branches
+        $hasAccess = $product->category()->whereIn('branch_id', $accessibleBranchIds)->exists();
         if (! $hasAccess) {
             abort(403, 'Anda tidak memiliki akses ke produk ini.');
         }
@@ -251,9 +235,9 @@ class ProductController extends Controller
 
     public function destroy(Product $product)
     {
-        // Verify product belongs to accessible branches
+        // Verify product's category belongs to accessible branches
         $accessibleBranchIds = $this->getAccessibleBranchIds();
-        $hasAccess = $product->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists();
+        $hasAccess = $product->category()->whereIn('branch_id', $accessibleBranchIds)->exists();
 
         if (! $hasAccess) {
             abort(403, 'Anda tidak memiliki akses ke produk ini.');
@@ -295,8 +279,8 @@ class ProductController extends Controller
     {
         $accessibleBranchIds = $this->getAccessibleBranchIds();
 
-        // Verify product belongs to accessible branches
-        $hasAccess = $product->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists();
+        // Verify product's category belongs to accessible branches
+        $hasAccess = $product->category()->whereIn('branch_id', $accessibleBranchIds)->exists();
         if (! $hasAccess) {
             abort(403, 'Anda tidak memiliki akses ke produk ini.');
         }
@@ -352,10 +336,13 @@ class ProductController extends Controller
     {
         $accessibleBranchIds = $this->getAccessibleBranchIds();
 
-        // Verify product belongs to accessible branches
-        $hasAccess = $product->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists();
-        if (! $hasAccess) {
-            abort(403, 'Anda tidak memiliki akses ke produk ini.');
+        // Verify product's category belongs to accessible branches OR allow new products
+        $hasExistingStock = $product->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists();
+        if (! $hasExistingStock && $product->branchStocks()->count() > 0) {
+            $hasAccess = $product->category()->whereIn('branch_id', $accessibleBranchIds)->exists();
+            if (! $hasAccess) {
+                abort(403, 'Anda tidak memiliki akses ke produk ini.');
+            }
         }
 
         $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
@@ -371,7 +358,13 @@ class ProductController extends Controller
     {
         $accessibleBranchIds = $this->getAccessibleBranchIds();
 
-        // Verify product and branch belong to user
+        // Verify product's category belongs to accessible branches
+        $hasAccess = $product->category()->whereIn('branch_id', $accessibleBranchIds)->exists();
+        if (! $hasAccess) {
+            abort(403, 'Anda tidak memiliki akses ke produk ini.');
+        }
+
+        // Verify branch belongs to user
         $request->validate([
             'branch_id' => 'required|exists:branches,id',
             'stock' => 'required|integer|min:0',
@@ -396,21 +389,28 @@ class ProductController extends Controller
         $request->validate([
             'stocks' => 'required|array',
             'stocks.*.branch_id' => 'required|exists:branches,id',
-            'stocks.*.stock' => 'required|integer|min:0',
+            'stocks.*.stock' => 'required|numeric|min:0',
         ]);
 
         foreach ($request->stocks as $stockData) {
-            // Verify branch belongs to user
             if (! in_array($stockData['branch_id'], $accessibleBranchIds)) {
                 abort(403, 'Anda tidak memiliki akses ke salah satu cabang.');
             }
+
+            $stock = $stockData['stock'];
+
+            // For products with materials, calculate stock from materials instead of using input
+            if ($product->hasMaterials()) {
+                $stock = $product->calculateStockFromMaterials($stockData['branch_id']);
+            }
+
             $product->branchStocks()->updateOrCreate(
                 ['branch_id' => $stockData['branch_id']],
-                ['stock' => $stockData['stock']]
+                ['stock' => $stock]
             );
         }
 
-        return back()->with('success', 'Stok semua cabang berhasil diperbarui!');
+        return redirect()->route('products.index')->with('success', 'Stok semua cabang berhasil diperbarui!');
     }
 
     // API for product search (for kasir/autocomplete)
@@ -419,9 +419,8 @@ class ProductController extends Controller
         $accessibleBranchIds = $this->getAccessibleBranchIds();
 
         $products = Product::active()
-            ->whereHas('branchStocks', function ($q) use ($accessibleBranchIds) {
-                $q->whereIn('branch_id', $accessibleBranchIds)
-                    ->where('stock', '>', 0);
+            ->whereHas('category.branch', function ($q) use ($accessibleBranchIds) {
+                $q->whereIn('branches.id', $accessibleBranchIds);
             })
             ->inStock()
             ->search($request->get('q', ''))
@@ -441,8 +440,8 @@ class ProductController extends Controller
             'barcode' => 'required|string',
         ]);
 
-        $product = Product::whereHas('branchStocks', function ($q) use ($accessibleBranchIds) {
-            $q->whereIn('branch_id', $accessibleBranchIds);
+        $product = Product::whereHas('category.branch', function ($q) use ($accessibleBranchIds) {
+            $q->whereIn('branches.id', $accessibleBranchIds);
         })
             ->where(function ($q) use ($request) {
                 $q->where('barcode', $request->barcode)

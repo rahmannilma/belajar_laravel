@@ -29,7 +29,16 @@
             </div>
             <div>
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ $product->name }}</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400">SKU: {{ $product->sku }} | Stok Global: {{ intval($product->stock) }}</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">SKU: {{ $product->sku }}</p>
+                @if($product->hasMaterials())
+                <span class="inline-flex items-center px-2 py-1 mt-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                    Komposisi: {{ $product->materials()->count() }} bahan
+                </span>
+                @else
+                <span class="inline-flex items-center px-2 py-1 mt-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                    Tanpa Komposisi
+                </span>
+                @endif
             </div>
         </div>
 
@@ -47,6 +56,7 @@
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                         @php
                             $branchStocks = $product->branchStocks()->pluck('stock', 'branch_id')->toArray();
+                            $hasMaterials = $product->hasMaterials();
                         @endphp
                         @foreach($branches as $branch)
                         <tr>
@@ -59,16 +69,34 @@
                                 </div>
                             </td>
                             <td class="px-4 py-3">
+                                @if($hasMaterials)
+                                @php
+                                    $calculatedStock = $product->calculateStockFromMaterials($branch->id);
+                                @endphp
+                                <span class="text-sm font-medium text-purple-600 dark:text-purple-400">
+                                    {{ intval($calculatedStock) }} <span class="text-gray-500 text-xs">(dihitung dari bahan)</span>
+                                </span>
+                                @else
                                 <span class="text-sm text-gray-600 dark:text-gray-400">
                                     {{ intval($branchStocks[$branch->id] ?? 0) }}
                                 </span>
+                                @endif
                             </td>
                             <td class="px-4 py-3">
                                 <input type="number" name="stocks[{{ $loop->index }}][branch_id]" value="{{ $branch->id }}" hidden>
+                                @if($hasMaterials)
+                                <input type="number" name="stocks[{{ $loop->index }}][stock]" 
+                                    value="0"
+                                    readonly
+                                    class="w-32 px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-gray-400 text-sm bg-gray-50 dark:bg-gray-800"
+                                    placeholder="Otomatis">
+                                <p class="mt-1 text-xs text-gray-500">Stok dihitung otomatis dari bahan</p>
+                                @else
                                 <input type="number" name="stocks[{{ $loop->index }}][stock]" 
                                     value="{{ $branchStocks[$branch->id] ?? 0 }}"
                                     min="0" 
                                     class="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm">
+                                @endif
                             </td>
                         </tr>
                         @endforeach

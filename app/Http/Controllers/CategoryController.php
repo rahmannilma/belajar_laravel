@@ -45,18 +45,20 @@ class CategoryController extends Controller
     {
         $accessibleBranchIds = $this->getAccessibleBranchIds();
 
+        // Auto-assign branch_id for owner if not provided
+        $branchId = $request->branch_id ?? $accessibleBranchIds[0] ?? null;
+
         $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:500',
-            'branch_id' => 'required|exists:branches,id',
+            'branch_id' => 'nullable|exists:branches,id',
         ]);
 
         // Verify branch belongs to user
-        if (! in_array($request->branch_id, $accessibleBranchIds)) {
+        if ($branchId && ! in_array($branchId, $accessibleBranchIds)) {
             abort(403, 'Anda tidak memiliki akses ke cabang ini.');
         }
 
-        $branchId = $request->branch_id;
         $slug = Str::slug($request->name);
 
         // Check if slug exists for this branch
