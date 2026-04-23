@@ -83,13 +83,7 @@ class DashboardController extends Controller
             ->get()
             ->map(function ($product) use ($accessibleBranchIds) {
                 $branchId = $accessibleBranchIds[0] ?? null;
-                $stock = $product->stock;
-                if ($branchId && $product->hasMaterials()) {
-                    $calculated = $product->calculateStockFromMaterials($branchId);
-                    if ($calculated !== null) {
-                        $stock = $calculated;
-                    }
-                }
+                $stock = $branchId ? $product->getStockForBranch($branchId) : $product->stock;
                 $product->display_stock = $stock;
 
                 return $product;
