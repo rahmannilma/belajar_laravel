@@ -12,21 +12,23 @@
 <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data" class="p-6 space-y-6">
     @csrf
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6" x-data='{
-        ingredients: @json(old('materials', [])),
-        materialsByBranch: @json($materialsByBranch),
-        selectedBranch: {{ old('branch_id') ?: 'null' }},
-        getFilteredMaterials() {
-            if (!this.selectedBranch) return [];
-            return this.materialsByBranch[this.selectedBranch] || [];
-        },
-        addIngredient() {
-            this.ingredients.push({ material_id: "", quantity: "" });
-        },
-        removeIngredient(index) {
-            this.ingredients.splice(index, 1);
-        }
-    }'>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" x-data='{
+            ingredients: @json(old('materials', [])),
+            materialsByBranch: @json($materialsByBranch),
+            getFilteredMaterials() {
+                let allMaterials = [];
+                Object.values(this.materialsByBranch).forEach(branchMaterials => {
+                    allMaterials = allMaterials.concat(branchMaterials);
+                });
+                return allMaterials;
+            },
+            addIngredient() {
+                this.ingredients.push({ material_id: "", quantity: "" });
+            },
+            removeIngredient(index) {
+                this.ingredients.splice(index, 1);
+            }
+        }'>
                 <!-- Name -->
                 <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nama Produk *</label>
@@ -75,21 +77,6 @@
                     @enderror
                 </div>
 
-                <!-- Branch Selection (for materials) -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pilih Cabin *</label>
-                    <select name="branch_id" x-model="selectedBranch" required
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white @error('branch_id') border-red-500 @enderror">
-                        <option value="">Pilih Cabin</option>
-                        @foreach($branches as $branch)
-                        <option value="{{ $branch->id }}" {{ old('branch_id') == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>
-                        @endforeach
-                    </select>
-                    <p class="mt-1 text-xs text-gray-500">Pilih cabin untuk melihat bahan yang tersedia</p>
-                    @error('branch_id')
-                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                    @enderror
-                </div>
 
                 <!-- Min Stock -->
                 <div>
@@ -153,7 +140,7 @@
                         <template x-for="(ingredient, index) in ingredients" :key="index">
                             <div class="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
                                 <div class="flex-1">
-                                    <select :name="'materials[' + (ingredient.material_id || index) + '][quantity]'" 
+                                    <select
                                         x-model="ingredient.material_id"
                                         required
                                         class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm">
@@ -162,18 +149,15 @@
                                             <option :value="material.id" x-text="material.name + ' (' + material.unit + ')'"></option>
                                         </template>
                                     </select>
-                                    <!-- Hidden input to ensure material_id is sent -->
-                                    <input type="hidden" :name="'materials[' + (ingredient.material_id || index) + '][material_id]'" :value="ingredient.material_id">
                                 </div>
                                 <div class="w-32">
                                     <div class="relative">
-                                        <input type="number" step="0.01" 
-                                            :name="'materials[' + (ingredient.material_id || index) + '][quantity]'"
+                                        <input type="number" step="0.01"
                                             x-model="ingredient.quantity"
                                             required min="0.01"
                                             placeholder="Takaran"
                                             class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm pr-10">
-                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500" 
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500"
                                             x-text="document.querySelector('select[x-model=\'ingredient.material_id\'] option[value=\'' + ingredient.material_id + '\']')?.innerText?.split('(').pop()?.replace(')', '') || ''"></span>
                                     </div>
                                 </div>
@@ -182,6 +166,8 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                     </svg>
                                 </button>
+                                <!-- Hidden input for form submission -->
+                                <input type="hidden" :name="'materials[' + ingredient.material_id + '][quantity]'" :value="ingredient.quantity">
                             </div>
                         </template>
                         <div x-show="ingredients.length === 0" class="text-center py-4 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-gray-500 text-sm">

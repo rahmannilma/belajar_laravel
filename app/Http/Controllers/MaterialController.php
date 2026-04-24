@@ -126,7 +126,7 @@ class MaterialController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'unit' => 'required|string|max:50',
-            'stock' => 'required|numeric|min:0',
+            'stock' => 'nullable|numeric|min:0',
             'min_stock' => 'required|numeric|min:0',
             'purchase_price' => 'required|numeric|min:0',
         ]);
@@ -192,8 +192,12 @@ class MaterialController extends Controller
                     ['branch_id' => $request->branch_id],
                     ['stock' => DB::raw('stock + '.$request->quantity)]
                 );
+                // Update product stocks that use this material
+                \App\Models\Product::updateStocksFromMaterial($material, $request->branch_id);
             } else {
                 $material->increment('stock', $request->quantity);
+                // Update product stocks for all branches (using fallback to material->stock)
+                \App\Models\Product::updateStocksFromMaterial($material);
             }
             $message = "Stok {$material->name} ditambah {$request->quantity} {$material->unit}.";
         } else {
@@ -205,16 +209,22 @@ class MaterialController extends Controller
                 if ($branchStock) {
                     $branchStock->decrement('stock', $request->quantity);
                 }
+                // Update product stocks that use this material
+                \App\Models\Product::updateStocksFromMaterial($material, $request->branch_id);
             } else {
                 if ($material->stock < $request->quantity) {
                     return back()->with('error', 'Stok tidak mencukupi!');
                 }
                 $material->decrement('stock', $request->quantity);
+                // Update ALL branch stocks for this material
+                $material->branchStocks()->decrement('stock', $request->quantity);
+                // Update product stocks for all branches
+                \App\Models\Product::updateStocksFromMaterial($material);
             }
             $message = "Stok {$material->name} dikurangi {$request->quantity} {$material->unit}.";
         }
 
-        return redirect()->route('materials.index')->with('success', $message);
+        return back()->with('success', $message);
     }
 
     public function branchStock(Request $request, Material $material)
@@ -255,6 +265,9 @@ class MaterialController extends Controller
             ['stock' => $request->stock]
         );
 
+        // Update product stocks that use this material
+        \App\Models\Product::updateStocksFromMaterial($material, $request->branch_id);
+
         return back()->with('success', 'Stok cabang berhasil diperbarui!');
     }
 
@@ -277,6 +290,9 @@ class MaterialController extends Controller
                 ['stock' => $stockData['stock']]
             );
         }
+
+        // Update product stocks that use this material
+        \App\Models\Product::updateStocksFromMaterial($material);
 
         return redirect()->route('materials.index')->with('success', 'Stok semua cabang berhasil diperbarui!');
     }

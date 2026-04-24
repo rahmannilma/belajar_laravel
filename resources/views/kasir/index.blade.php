@@ -396,7 +396,7 @@ function posSystem() {
         },
 
         get filteredProducts() {
-            let result = this.products;
+            let result = this.products.filter(p => p.display_stock > 0);
             
             if (this.selectedCategory) {
                 result = result.filter(p => p.category_id === this.selectedCategory);

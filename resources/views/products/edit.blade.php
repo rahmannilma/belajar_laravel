@@ -9,11 +9,34 @@
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Edit Produk</h2>
         </div>
 
+        @php
+            // ingredientsData already prepared in controller
+        @endphp
+
         <form action="{{ route('products.update', $product) }}" method="POST" enctype="multipart/form-data" class="p-6 space-y-6">
             @csrf
             @method('PUT')
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+ 
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6" x-data='{
+                selectedBranch: {{ old('branch_id', $productBranchId ?? 'null') }},
+                ingredients: @json($ingredientsData),
+                allMaterials: @json($allMaterials ?? []),
+ 
+                getFilteredMaterials() {
+                    return this.allMaterials;
+                },
+ 
+                addIngredient() {
+                    this.ingredients.push({
+                        material_id: "",
+                        quantity: ""
+                    });
+                },
+ 
+                removeIngredient(index) {
+                    this.ingredients.splice(index, 1);
+                }
+            }'>
                 <!-- Name -->
                 <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nama Produk *</label>
@@ -61,16 +84,6 @@
                     @enderror
                 </div>
 
-                <!-- Stock -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Stok *</label>
-                    <input type="number" name="stock" value="{{ old('stock', $product->stock) }}" required min="0"
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white @error('stock') border-red-500 @enderror">
-                    @error('stock')
-                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                    @enderror
-                </div>
-
                 <!-- Min Stock -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Minimal Stok</label>
@@ -80,6 +93,26 @@
                     <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                     @enderror
                 </div>
+
+                <!-- Stock (for products without materials) -->
+                @if($product->materials->count() === 0)
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Stok Global</label>
+                    <input type="number" name="stock" value="{{ old('stock', $product->stock) }}" min="0"
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white @error('stock') border-red-500 @enderror">
+                    <p class="mt-1 text-xs text-gray-500">Stok utama (sebelum dibagi ke cabin)</p>
+                    @error('stock')
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+                @else
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Stok</label>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        Stok dihitung otomatis dari bahan baku. Kelola di <a href="{{ route('products.branch-stock', $product) }}" class="text-teal-600 hover:underline">Stok Cabin</a>.
+                    </p>
+                </div>
+                @endif
 
                 <!-- Purchase Price -->
                 <div>
@@ -117,16 +150,26 @@
                     @enderror
                 </div>
 
+                <!-- Branch Selection (for materials) -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pilih Cabin *</label>
+                    <select name="branch_id" x-model="selectedBranch" required
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white @error('branch_id') border-red-500 @enderror">
+                        <option value="">Pilih Cabin</option>
+                        @foreach($branches as $branch)
+                        <option value="{{ $branch->id }}" {{ old('branch_id', $product->category->branch_id ?? '') == $branch->id ? 'selected' : '' }}>
+                            {{ $branch->name }}
+                        </option>
+                        @endforeach
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500">Pilih cabin untuk melihat bahan yang tersedia</p>
+                    @error('branch_id')
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+
                 <!-- materials -->
-                <div class="md:col-span-2 space-y-4" x-data='{
-                    ingredients: @json($product->materials->map(fn($m) => ["material_id" => $m->id, "quantity" => (float)$m->pivot->quantity])),
-                    addIngredient() {
-                        this.ingredients.push({ material_id: "", quantity: "" });
-                    },
-                    removeIngredient(index) {
-                        this.ingredients.splice(index, 1);
-                    }
-                }'>
+                <div class="md:col-span-2 space-y-4">
                     <div class="flex items-center justify-between">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Komposisi Bahan (Resep / Takaran)</label>
                         <button type="button" @click="addIngredient()" class="text-sm text-teal-600 hover:text-teal-500 font-medium flex items-center">
@@ -141,27 +184,28 @@
                         <template x-for="(ingredient, index) in ingredients" :key="index">
                             <div class="flex items-center gap-3 bg-gray-50 dark:bg-gray-700/30 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
                                 <div class="flex-1">
-                                    <select :name="'materials[' + (ingredient.material_id || index) + '][id]'" 
+                                    <select
                                         x-model="ingredient.material_id"
                                         required
                                         class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm">
                                         <option value="">Pilih Bahan</option>
-                                        @foreach($materials as $material)
-                                        <option value="{{ $material->id }}">{{ $material->name }} ({{ $material->unit }})</option>
-                                        @endforeach
+                                        <template x-for="material in getFilteredMaterials()" :key="material.id">
+                                            <option :value="material.id" x-text="material.name + ' (' + material.unit + ')'" :selected="material.id == ingredient.material_id"></option>
+                                        </template>
                                     </select>
-                                    <!-- Hidden input to pass material_id even if name has index -->
+                                    <!-- Hidden input to ensure material_id is sent -->
                                     <input type="hidden" :name="'materials[' + (ingredient.material_id || index) + '][material_id]'" :value="ingredient.material_id">
                                 </div>
                                 <div class="w-32">
                                     <div class="relative">
-                                        <input type="number" step="0.01" 
+                                        <input type="number" step="0.01"
                                             :name="'materials[' + (ingredient.material_id || index) + '][quantity]'"
                                             x-model="ingredient.quantity"
                                             required min="0.01"
                                             placeholder="Takaran"
                                             class="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm pr-10">
-                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500" x-text="document.querySelector('select[x-model=\'ingredient.material_id\'] option[value=\'' + ingredient.material_id + '\']')?.innerText.split('(').pop().replace(')', '') || ''"></span>
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500"
+                                            x-text="document.querySelector('select[x-model=\'ingredient.material_id\'] option[value=\'' + ingredient.material_id + '\']')?.innerText?.split('(').pop()?.replace(')', '') || ''"></span>
                                     </div>
                                 </div>
                                 <button type="button" @click="removeIngredient(index)" class="text-red-500 hover:text-red-600 p-1">

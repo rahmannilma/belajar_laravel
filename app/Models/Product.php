@@ -83,6 +83,33 @@ class Product extends Model
         return $this->materials()->count() > 0;
     }
 
+    public static function updateStocksFromMaterial(Material $material, ?int $branchId = null): void
+    {
+        // Find all products that use this material
+        $products = self::whereHas('materials', function ($q) use ($material) {
+            $q->where('material_id', $material->id);
+        })->get();
+
+        // Get branch IDs - filter by material's branch owner
+        if ($branchId) {
+            $branchIds = [$branchId];
+        } else {
+            // Get branches that have this material in stock
+            $branchIds = $material->branchStocks()->pluck('branch_id')->toArray();
+        }
+
+        foreach ($products as $product) {
+            foreach ($branchIds as $branchId) {
+                // Update stock for each branch
+                $stock = $product->calculateStockFromMaterials($branchId);
+                $product->branchStocks()->updateOrCreate(
+                    ['branch_id' => $branchId],
+                    ['stock' => $stock]
+                );
+            }
+        }
+    }
+
     public function calculateStockFromMaterials(int $branchId): ?float
     {
         $materialIds = $this->materials()->pluck('materials.id')->toArray();
@@ -107,13 +134,15 @@ class Product extends Model
 
         foreach ($materials as $material) {
             $branchStock = $material->branchStocks->first();
-            $stock = $branchStock?->stock ?? 0;
-            $quantity = $productMaterialPivots[$material->id] ?? 10;
+
+            // If no branch stock, fall back to main stock field
+            $stock = $branchStock?->stock ?? ($material->stock ?? 0);
 
             if ($stock <= 0) {
                 return 0;
             }
 
+            $quantity = $productMaterialPivots[$material->id] ?? 1;
             $possibleProducts = floor($stock / $quantity);
 
             if ($possibleProducts < $minStock) {

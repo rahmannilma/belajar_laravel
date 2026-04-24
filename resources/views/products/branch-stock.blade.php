@@ -34,6 +34,18 @@
                 <span class="inline-flex items-center px-2 py-1 mt-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
                     Komposisi: {{ $product->materials()->count() }} bahan
                 </span>
+                <!-- Komposisi Detail -->
+                <div class="mt-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                    <h3 class="text-sm font-semibold text-purple-800 dark:text-purple-200 mb-3">Komposisi Bahan (Takaran)</h3>
+                    <div class="space-y-2">
+                        @foreach($product->materials as $material)
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-purple-700 dark:text-purple-300">{{ $material->name }}</span>
+                            <span class="text-sm font-medium text-purple-800 dark:text-purple-200">{{ $material->pivot->quantity }} {{ $material->unit }}</span>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
                 @else
                 <span class="inline-flex items-center px-2 py-1 mt-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
                     Tanpa Komposisi

@@ -36,7 +36,11 @@ class UserController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->paginate(10);
 
-            $branches = \App\Models\Branch::where('is_active', true)->orderBy('name')->get();
+            // Only show branches belonging to the current owner
+            $branches = \App\Models\Branch::where('owner_id', auth()->user()->id)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get();
         } else {
             $users = User::query()
                 ->with('branch')

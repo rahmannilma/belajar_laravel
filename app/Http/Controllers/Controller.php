@@ -33,11 +33,17 @@ abstract class Controller extends BaseController
         $user = auth()->user();
 
         if ($user->isOwner()) {
+            // Owner only sees their own branches - explicit filter
             return Branch::where('owner_id', $user->id)->orderBy('name')->get();
         }
 
         // Cashier/staff: only their assigned branch
-        return Branch::where('id', $user->branch_id)->orderBy('name')->get();
+        if ($user->branch_id) {
+            return Branch::where('id', $user->branch_id)->where('is_active', true)->orderBy('name')->get();
+        }
+
+        // Fallback: return empty collection if no branch assigned
+        return collect();
     }
 
     /**

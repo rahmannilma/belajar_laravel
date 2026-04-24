@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Material;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -17,7 +18,9 @@ class ProductController extends Controller
     public function __construct()
     {
         $this->middleware(function ($request, $next) {
-            if (! auth()->user()->canManageProducts()) {
+            $user = Auth::user();
+
+            if (! $user || ! $user->canManageProducts()) {
                 abort(403, 'Anda tidak memiliki izin untuk mengakses halaman ini.');
             }
 
@@ -48,6 +51,11 @@ class ProductController extends Controller
                     $q->where('branch_id', $branch);
                 });
             })
+            ->when($request->material, function ($query, $material) {
+                $query->whereHas('materials', function ($q) use ($material) {
+                    $q->where('material_id', $material);
+                });
+            })
             ->when($request->stock_status, function ($query, $status) {
                 if ($status === 'low') {
                     $query->lowStock();
@@ -64,16 +72,38 @@ class ProductController extends Controller
             ->paginate(15);
 
         $categories = Category::whereIn('branch_id', $accessibleBranchIds)->orderBy('name')->get();
-        $branches = $this->getAccessibleBranches()->where('is_active', true);
+        $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
 
-        return view('products.index', compact('products', 'categories', 'branches'));
+        $materials = Material::with(['branchStocks' => function ($q) use ($accessibleBranchIds) {
+            $q->whereIn('branch_id', $accessibleBranchIds);
+        }])
+            ->whereHas('branchStocks', function ($q) use ($accessibleBranchIds) {
+                $q->whereIn('branch_id', $accessibleBranchIds);
+            })
+            ->orderBy('name')
+            ->get();
+
+        return view('products.index', compact('products', 'categories', 'branches', 'materials'));
     }
 
     public function create()
     {
         $accessibleBranchIds = $this->getAccessibleBranchIds();
         $categories = Category::whereIn('branch_id', $accessibleBranchIds)->orderBy('name')->get();
-        $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
+
+        // Explicitly filter by owner for multi-tenant isolation
+        $user = auth()->user();
+        if ($user->isOwner()) {
+            $branches = Branch::where('owner_id', $user->id)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get();
+        } else {
+            $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
+        }
+
+        // Debug: only show this in development
+        // dd($accessibleBranchIds, $branches->pluck('owner_id', 'id'));
 
         // Load materials with their branch stocks for accessible branches
         $materials = Material::with(['branchStocks' => function ($q) use ($accessibleBranchIds) {
@@ -133,9 +163,11 @@ class ProductController extends Controller
         // Sync materials
         if ($request->has('materials')) {
             $syncData = [];
-            foreach ($request->materials as $materialId => $pivot) {
-                if (! empty($pivot['quantity']) && $pivot['quantity'] > 0) {
-                    $syncData[$materialId] = ['quantity' => $pivot['quantity']];
+            foreach ($request->materials as $key => $pivot) {
+                $materialId = is_numeric($key) ? ($pivot['material_id'] ?? $key) : $key;
+                $quantity = $pivot['quantity'] ?? 0;
+                if (! empty($quantity) && $quantity > 0) {
+                    $syncData[$materialId] = ['quantity' => $quantity];
                 }
             }
             $product->materials()->sync($syncData);
@@ -173,7 +205,47 @@ class ProductController extends Controller
 
         $product->load('materials');
 
-        return view('products.edit', compact('product', 'categories', 'materials'));
+        // Prepare ingredients data for the form
+        $ingredientsData = [];
+        foreach ($product->materials as $material) {
+            $ingredientsData[] = [
+                'material_id' => $material->id,
+                'quantity' => $material->pivot->quantity,
+            ];
+        }
+
+        // Get all materials for the branch selector
+        $allMaterials = Material::with(['branchStocks' => function ($q) use ($accessibleBranchIds) {
+            $q->whereIn('branch_id', $accessibleBranchIds);
+        }])
+            ->whereHas('branchStocks', function ($q) use ($accessibleBranchIds) {
+                $q->whereIn('branch_id', $accessibleBranchIds);
+            })
+            ->orderBy('name')
+            ->get()
+            ->map(function ($material) {
+                return [
+                    'id' => $material->id,
+                    'name' => $material->name,
+                    'unit' => $material->unit,
+                ];
+            })
+            ->toArray();
+
+        // Get product's branch ID (from category)
+        $productBranchId = $product->category->branch_id ?? null;
+
+        $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
+
+        return view('products.edit', compact(
+            'product',
+            'categories',
+            'materials',
+            'allMaterials',
+            'ingredientsData',
+            'productBranchId',
+            'branches'
+        ));
     }
 
     public function update(Request $request, Product $product)
@@ -193,7 +265,7 @@ class ProductController extends Controller
             'category_id' => 'required|exists:categories,id',
             'purchase_price' => 'required|numeric|min:0',
             'selling_price' => 'required|numeric|min:0',
-            'stock' => 'required|integer|min:0',
+            'stock' => 'nullable|integer|min:0',
             'min_stock' => 'required|integer|min:0',
             'description' => 'nullable|string',
             'image' => 'nullable|image|max:2048',
@@ -220,9 +292,11 @@ class ProductController extends Controller
         // Sync materials
         if ($request->has('materials')) {
             $syncData = [];
-            foreach ($request->materials as $materialId => $pivot) {
-                if (! empty($pivot['quantity']) && $pivot['quantity'] > 0) {
-                    $syncData[$materialId] = ['quantity' => $pivot['quantity']];
+            foreach ($request->materials as $key => $pivot) {
+                $materialId = is_numeric($key) ? ($pivot['material_id'] ?? $key) : $key;
+                $quantity = $pivot['quantity'] ?? 0;
+                if (! empty($quantity) && $quantity > 0) {
+                    $syncData[$materialId] = ['quantity' => $quantity];
                 }
             }
             $product->materials()->sync($syncData);
