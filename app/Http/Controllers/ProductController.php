@@ -448,9 +448,16 @@ class ProductController extends Controller
             abort(403, 'Anda tidak memiliki akses ke cabang ini.');
         }
 
+        $stock = $request->stock;
+
+        // For products with materials, calculate stock from materials instead of using input
+        if ($product->hasMaterials()) {
+            $stock = $product->calculateStockFromMaterials($request->branch_id);
+        }
+
         $product->branchStocks()->updateOrCreate(
             ['branch_id' => $request->branch_id],
-            ['stock' => $request->stock]
+            ['stock' => $stock]
         );
 
         return back()->with('success', 'Stok cabang berhasil diperbarui!');
