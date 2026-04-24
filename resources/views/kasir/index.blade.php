@@ -209,7 +209,7 @@
 
             <!-- Change / Error -->
             <div class="px-4 pb-4" x-show="paymentMethod === 'cash'" x-cloak>
-                <div x-show="changeAmount > 0" class="p-4 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl shadow-lg">
+                <div x-show="changeAmount > 0" class="py-3 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-bold hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors">
                     <div class="flex justify-between items-center">
                         <div>
                             <span class="text-sm font-medium opacity-90">Kembalian</span>
@@ -220,7 +220,7 @@
                         </svg>
                     </div>
                 </div>
-                <div x-show="changeAmount < 0 && paymentAmount > 0" class="p-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl shadow-lg">
+                <div x-show="changeAmount < 0 && paymentAmount > 0" class="p-4 rounded-xl shadow-lg text-white" style="background-color: #991b1b; background: linear-gradient(to right, #dc2626, #991b1b);">
                     <div class="flex items-center gap-3">
                         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
