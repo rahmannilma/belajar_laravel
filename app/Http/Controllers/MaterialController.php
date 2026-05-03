@@ -23,21 +23,24 @@ class MaterialController extends Controller
     {
         $accessibleBranchIds = $this->getAccessibleBranchIds();
 
-        $materials = Material::with(['branchStocks' => function ($q) use ($accessibleBranchIds) {
+        $materials = Material::whereHas('branchStocks', function ($q) use ($accessibleBranchIds) {
+                $q->whereIn('branch_id', $accessibleBranchIds);
+            })
+            ->with(['branchStocks' => function ($q) use ($accessibleBranchIds) {
                 $q->whereIn('branch_id', $accessibleBranchIds)->with('branch');
             }])
             ->when($request->search, function ($query, $search) {
                 $query->search($search);
             })
-            ->when($request->branch, function ($query, $branch) {
-                $query->whereHas('branchStocks', function ($q) use ($branch) {
-                    $q->where('branch_id', $branch);
+            ->when($request->branch, function ($query, $branch) use ($accessibleBranchIds) {
+                $query->whereHas('branchStocks', function ($q) use ($branch, $accessibleBranchIds) {
+                    $q->where('branch_id', $branch)->whereIn('branch_id', $accessibleBranchIds);
                 });
             })
-            ->when($request->stock_status, function ($query, $status) use ($request) {
+            ->when($request->stock_status, function ($query, $status) use ($request, $accessibleBranchIds) {
                 $branchId = $request->branch ?: $request->input('branch');
 
-                if ($branchId) {
+                if ($branchId && in_array($branchId, $accessibleBranchIds)) {
                     if ($status === 'low') {
                         $query->whereHas('branchStocks', fn ($q) => $q->where('branch_id', $branchId)->whereColumn('stock', '<=', 'materials.min_stock'));
                     } elseif ($status === 'out') {
