@@ -27,15 +27,30 @@
                 </div>
             </li>
         </ol>
-    </nav>
+     </nav>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div class="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-700/30">
             <h1 class="text-xl font-bold text-gray-900 dark:text-white">Tambah Bahan Baru</h1>
             <p class="text-sm text-gray-500 dark:text-gray-400">Masukkan informasi detail bahan baku atau peralatan</p>
         </div>
 
-        <form action="{{ route('materials.store') }}" method="POST" class="p-6 space-y-6">
+        <form action="{{ route('materials.store') }}" method="POST" class="p-6 space-y-6"
+            x-data='{
+                unit: @json(old('unit', 'gr')),
+                purchaseQuantity: @json(old('purchase_quantity', 1)),
+                purchaseTotal: @json(old('purchase_total', 0)),
+                purchase_price_value: 0,
+                updatePurchasePrice() {
+                    const qty = Number(this.purchaseQuantity) || 0;
+                    const total = Number(this.purchaseTotal) || 0;
+                    this.purchase_price_value = qty > 0 ? Math.round(total / qty) : 0;
+                },
+                init() {
+                    this.updatePurchasePrice();
+                }
+            }'
+            @submit="updatePurchasePrice()">
             @csrf
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -51,28 +66,61 @@
                 <!-- Unit -->
                 <div>
                     <label for="unit" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Satuan <span class="text-red-500">*</span></label>
-                    <select name="unit" id="unit" required
+                    <select name="unit" id="unit" required x-model="unit"
                         class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-teal-500 focus:border-teal-500">
-                        <option value="gr" {{ old('unit') == 'gr' ? 'selected' : '' }}>Gram (gr)</option>
-                        <option value="ml" {{ old('unit') == 'ml' ? 'selected' : '' }}>Mililiter (ml)</option>
-                        <option value="pcs" {{ old('unit') == 'pcs' ? 'selected' : '' }}>Pieces (pcs)</option>
-                        <option value="kg" {{ old('unit') == 'kg' ? 'selected' : '' }}>Kilogram (kg)</option>
-                        <option value="liter" {{ old('unit') == 'liter' ? 'selected' : '' }}>Liter (l)</option>
-                        <option value="pack" {{ old('unit') == 'pack' ? 'selected' : '' }}>Pack</option>
+                        <option value="gr">Gram (gr)</option>
+                        <option value="ml">Mililiter (ml)</option>
+                        <option value="pcs">Pieces (pcs)</option>
+                        <option value="kg">Kilogram (kg)</option>
+                        <option value="liter">Liter (l)</option>
+                        <option value="pack">Pack</option>
                     </select>
                     @error('unit') <p class="mt-1 text-sm text-red-500">{{ $message }}</p> @enderror
                 </div>
 
-                <!-- Purchase Price -->
-                <div>
-                    <label for="purchase_price" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Harga Beli per Satuan <span class="text-red-500">*</span></label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 dark:text-gray-400">Rp</span>
-                        <input type="number" name="purchase_price" id="purchase_price" value="{{ old('purchase_price', 0) }}" required min="0"
-                            class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-teal-500 focus:border-teal-500"
-                            placeholder="0">
+                <!-- Initial Purchase Info -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Info Pembelian Awal</label>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <!-- Jumlah Pembelian -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jumlah Pembelian Awal</label>
+                            <div class="relative">
+                                <input type="number" x-model.number="purchaseQuantity" min="0.01" step="0.01"
+                                    @input="updatePurchasePrice()"
+                                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white sm:text-sm"
+                                    :placeholder="'Masukkan jumlah dalam ' + unit">
+                            </div>
+                        </div>
+
+                        <!-- Total Harga Beli -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Total Harga Beli (Rp)</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">Rp</span>
+                                <input type="number" x-model.number="purchaseTotal" min="0" step="100"
+                                    @input="updatePurchasePrice()"
+                                    class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm"
+                                    placeholder="0">
+                            </div>
+                        </div>
+
+                        <!-- Harga per Satuan (Auto-calculated) -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Harga per Satuan (Rp)</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">Rp</span>
+                                <input type="text" readonly
+                                    class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm bg-gray-100 dark:bg-gray-600"
+                                    :value="purchaseTotal > 0 && purchaseQuantity > 0 ? Math.round(purchaseTotal / purchaseQuantity).toLocaleString('id-ID') : '-'">
+                            </div>
+                            <p class="mt-1 text-xs text-gray-500">Akan disimpan sebagai harga beli</p>
+                            @error('purchase_price')
+                                <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                            @enderror
+                        </div>
                     </div>
-                    @error('purchase_price') <p class="mt-1 text-sm text-red-500">{{ $message }}</p> @enderror
+                    <input type="hidden" name="purchase_price" id="purchase_price" x-model="purchase_price_value">
                 </div>
 
                 <!-- Min Stock -->
