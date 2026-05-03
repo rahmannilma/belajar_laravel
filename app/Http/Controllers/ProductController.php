@@ -272,6 +272,25 @@ class ProductController extends Controller
             'is_active' => 'boolean',
         ]);
 
+        // Prevent manual stock adjustment for products with materials
+        $hasCurrentMaterials = $product->materials()->exists();
+        // Check if request contains materials data (non-empty)
+        $materialsInput = $request->input('materials', []);
+        $hasIncomingMaterials = false;
+        if (is_array($materialsInput)) {
+            foreach ($materialsInput as $mat) {
+                if (!empty($mat['material_id'])) {
+                    $hasIncomingMaterials = true;
+                    break;
+                }
+            }
+        }
+
+        // If product has materials (existing or incoming), reject stock changes
+        if (($hasCurrentMaterials || $hasIncomingMaterials) && $request->has('stock')) {
+            return back()->with('error', 'Produk ini menggunakan bahan baku. Stok tidak dapat diatur manual, silakan atur stok bahan baku di halaman Bahan.');
+        }
+
         $data = $request->except('image');
 
         if ($request->hasFile('image')) {
@@ -288,6 +307,11 @@ class ProductController extends Controller
         }
 
         $product->update($data);
+
+        // Prevent stock update for products with materials
+        if ($product->hasMaterials() && $request->has('stock')) {
+            return back()->with('error', 'Produk ini menggunakan bahan baku. Stok tidak dapat diatur manual, silakan atur stok bahan baku.');
+        }
 
         // Sync materials
         if ($request->has('materials')) {
@@ -357,6 +381,11 @@ class ProductController extends Controller
         $hasAccess = $product->category()->whereIn('branch_id', $accessibleBranchIds)->exists();
         if (! $hasAccess) {
             abort(403, 'Anda tidak memiliki akses ke produk ini.');
+        }
+
+        // Prevent manual adjustment for products with materials
+        if ($product->hasMaterials()) {
+            return back()->with('error', 'Produk ini menggunakan bahan baku. Stok tidak dapat diatur manual, silakan atur stok bahan baku di halaman Bahan.');
         }
 
         $request->validate([
@@ -438,6 +467,11 @@ class ProductController extends Controller
             abort(403, 'Anda tidak memiliki akses ke produk ini.');
         }
 
+        // Prevent manual adjustment for products with materials
+        if ($product->hasMaterials()) {
+            return back()->with('error', 'Produk ini menggunakan bahan baku. Stok tidak dapat diatur manual, silakan atur stok bahan baku di halaman Bahan.');
+        }
+
         // Verify branch belongs to user
         $request->validate([
             'branch_id' => 'required|exists:branches,id',
@@ -448,16 +482,9 @@ class ProductController extends Controller
             abort(403, 'Anda tidak memiliki akses ke cabang ini.');
         }
 
-        $stock = $request->stock;
-
-        // For products with materials, calculate stock from materials instead of using input
-        if ($product->hasMaterials()) {
-            $stock = $product->calculateStockFromMaterials($request->branch_id);
-        }
-
         $product->branchStocks()->updateOrCreate(
             ['branch_id' => $request->branch_id],
-            ['stock' => $stock]
+            ['stock' => $request->stock]
         );
 
         return back()->with('success', 'Stok cabang berhasil diperbarui!');
@@ -466,6 +493,11 @@ class ProductController extends Controller
     public function bulkBranchStock(Request $request, Product $product)
     {
         $accessibleBranchIds = $this->getAccessibleBranchIds();
+
+        // Prevent manual bulk adjustment for products with materials
+        if ($product->hasMaterials()) {
+            return back()->with('error', 'Produk ini menggunakan bahan baku. Stok tidak dapat diatur manual, silakan atur stok bahan baku di halaman Bahan.');
+        }
 
         $request->validate([
             'stocks' => 'required|array',
@@ -478,16 +510,9 @@ class ProductController extends Controller
                 abort(403, 'Anda tidak memiliki akses ke salah satu cabang.');
             }
 
-            $stock = $stockData['stock'];
-
-            // For products with materials, calculate stock from materials instead of using input
-            if ($product->hasMaterials()) {
-                $stock = $product->calculateStockFromMaterials($stockData['branch_id']);
-            }
-
             $product->branchStocks()->updateOrCreate(
                 ['branch_id' => $stockData['branch_id']],
-                ['stock' => $stock]
+                ['stock' => $stockData['stock']]
             );
         }
 

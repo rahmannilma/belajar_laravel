@@ -165,7 +165,7 @@ class BranchController extends Controller
             abort(403, 'Anda tidak memiliki akses ke cabang ini.');
         }
 
-        $products = Product::with('category', 'branchStocks')
+        $products = Product::with('category', 'branchStocks', 'materials')
             ->whereHas('branchStocks', function ($query) use ($branch) {
                 $query->where('branch_id', $branch->id);
             })
@@ -174,6 +174,7 @@ class BranchController extends Controller
             ->map(function ($product) use ($branch) {
                 $branchStock = $product->branchStocks()->where('branch_id', $branch->id)->first();
                 $product->cabin_stock = $branchStock?->stock ?? 0;
+                $product->has_materials = $product->materials->isNotEmpty();
 
                 return $product;
             });
@@ -241,6 +242,11 @@ class BranchController extends Controller
         }
 
         if ($product) {
+            // Check if product has materials - prevent manual adjustment
+            if ($product->hasMaterials()) {
+                return back()->with('error', 'Produk ini menggunakan bahan baku. Stok tidak dapat diatur manual, silakan atur stok bahan baku.');
+            }
+
             $branchStock = $product->branchStocks()->firstOrCreate(
                 ['branch_id' => $branch->id],
                 ['stock' => 0]
@@ -277,6 +283,9 @@ class BranchController extends Controller
 
             $branchStock->update(['stock' => $newStock]);
 
+            // Update product stocks that depend on this material
+            \App\Models\Product::updateStocksFromMaterial($material, $branch->id);
+
             $action = $request->type === 'add' ? 'ditambah' : 'dikurangi';
 
             return back()->with('success', "Stok bahan '{$material->name}' berhasil {$action} dari {$oldStock} menjadi {$newStock}. ".($request->reason ? "Keterangan: {$request->reason}" : ''));
@@ -302,6 +311,10 @@ class BranchController extends Controller
             if ($product) {
                 // Verify product belongs to accessible branches
                 if ($product->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists()) {
+                    // Prevent removal if product has materials
+                    if ($product->hasMaterials()) {
+                        return response()->json(['error' => 'Produk ini menggunakan bahan baku. Stok tidak dapat dihapus manual.'], 403);
+                    }
                     $product->branchStocks()->where('branch_id', $branch->id)->delete();
 
                     return response()->json(['success' => true]);

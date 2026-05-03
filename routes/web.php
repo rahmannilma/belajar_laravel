@@ -62,7 +62,6 @@ Route::middleware('auth')->group(function () {
 
     // Materials (only owner can manage)
     Route::resource('materials', MaterialController::class);
-    Route::post('/materials/{material}/adjust-stock', [MaterialController::class, 'adjustStock'])->name('materials.adjust-stock');
     Route::get('/materials/{material}/branch-stock', [MaterialController::class, 'branchStock'])->name('materials.branch-stock');
     Route::post('/materials/{material}/branch-stock', [MaterialController::class, 'updateBranchStock'])->name('materials.branch-stock.update');
     Route::post('/materials/{material}/branch-stock/bulk', [MaterialController::class, 'bulkBranchStock'])->name('materials.branch-stock.bulk');

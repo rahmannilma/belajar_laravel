@@ -12,6 +12,13 @@
 
 @variant dark (&:where(.dark, .dark *));
 
+/* Ensure navbar is always visible on mobile */
+nav {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 50 !important;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
     width: 8px;

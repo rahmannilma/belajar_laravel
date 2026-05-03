@@ -143,6 +143,9 @@
                                 <td class="px-4 py-2">
                                     <p class="text-sm font-medium text-gray-900 dark:text-white" x-text="product.name"></p>
                                     <p class="text-xs text-gray-500 dark:text-gray-400" x-text="product.category?.name"></p>
+                                    <span x-show="product.has_materials" class="inline-flex items-center px-1.5 py-0.5 mt-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                        Komposisi bahan
+                                    </span>
                                 </td>
                                 <td class="px-4 py-2">
                                     <span class="text-sm font-semibold" 
@@ -151,7 +154,7 @@
                                 </td>
                                 <td class="px-4 py-2">
                                     <div class="flex items-center gap-2">
-                                        <button type="button" @click="showModal = true; modalId = 'p' + product.id; modalName = product.name; modalUnit = 'pcs'; modalCabinStock = product.cabin_stock; modalAction = '/branches/' + selectedBranchId + '/adjust-stock/p' + product.id" class="p-1.5 text-gray-400 hover:text-orange-500 transition-colors" title="Penyesuaian Stok">
+                                        <button x-show="!product.has_materials" type="button" @click="showModal = true; modalId = 'p' + product.id; modalName = product.name; modalUnit = 'pcs'; modalCabinStock = product.cabin_stock; modalAction = '/branches/' + selectedBranchId + '/adjust-stock/p' + product.id" class="p-1.5 text-gray-400 hover:text-orange-500 transition-colors" title="Penyesuaian Stok">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
                                             </svg>

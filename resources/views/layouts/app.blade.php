@@ -30,9 +30,9 @@
     <div class="min-h-screen flex flex-col">
         <!-- Navigation -->
         @auth
-        <nav class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
+        <nav class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 min-h-[60px]">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between h-16">
+                <div class="flex justify-between h-16 min-h-[60px]">
                     <div class="flex items-center">
                         <!-- Logo -->
                         <a href="{{ auth()->user()->isCashier() ? route('kasir') : route('dashboard') }}" class="flex items-center space-x-2">
@@ -80,7 +80,7 @@
                             </x-nav-link>
                             @endif
                             
-                            <x-nav-link :href="route('sales.index')" :active="request()->routeIs('sales.*')">
+<x-nav-link :href="route('sales.index')" :active="request()->routeIs('sales.*')">
                                 <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                 </svg>
@@ -88,7 +88,7 @@
                             </x-nav-link>
 
                             @if(auth()->user()->canManageUsers())
-                            <x-nav-link :href="route('categories.index')" :active="request()->routeIs('categories.*')">
+                             <x-nav-link :href="route('categories.index')" :active="request()->routeIs('categories.*')">
                                 <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
                                 </svg>
@@ -192,9 +192,12 @@
                     <x-mobile-nav-link :href="route('materials.index')" :active="request()->routeIs('materials.*')">Bahan</x-mobile-nav-link>
                     @endif
                     <x-mobile-nav-link :href="route('sales.index')" :active="request()->routeIs('sales.*')">Penjualan</x-mobile-nav-link>
+                    @if(auth()->user()->canManageProducts())
+                    <x-mobile-nav-link :href="route('branches.stock-overview')" :active="request()->routeIs('branches.stock-overview')">Stok Cabin</x-mobile-nav-link>
+                    @endif
                     @if(auth()->user()->canManageUsers())
                     <x-mobile-nav-link :href="route('categories.index')" :active="request()->routeIs('categories.*')">Kategori</x-mobile-nav-link>
-                    <x-mobile-nav-link :href="route('branches.index')" :active="request()->routeIs('branches.*')">Cabang</x-mobile-nav-link>
+                     <x-mobile-nav-link :href="route('branches.index')" :active="request()->routeIs('branches.index') || request()->routeIs('branches.create') || request()->routeIs('branches.edit') || request()->routeIs('branches.show')">Cabang</x-mobile-nav-link>
                     <x-mobile-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">Users</x-mobile-nav-link>
                     @endif
                 </div>
@@ -203,7 +206,7 @@
         @endauth
 
         <!-- Page Content -->
-        <main class="flex-1 {{ auth()->check() ? 'py-6' : '' }}">
+        <main class="flex-1 {{ auth()->check() ? 'py-6' : '' }} pt-14 md:pt-0">
             @if(auth()->check())
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <!-- Flash Messages -->

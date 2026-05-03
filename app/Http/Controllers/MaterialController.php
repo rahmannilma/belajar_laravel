@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Branch;
 use App\Models\Material;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class MaterialController extends Controller
 {
@@ -24,10 +23,9 @@ class MaterialController extends Controller
     {
         $accessibleBranchIds = $this->getAccessibleBranchIds();
 
-        $materials = Material::with('branchStocks.branch')
-            ->whereHas('branchStocks', function ($q) use ($accessibleBranchIds) {
-                $q->whereIn('branch_id', $accessibleBranchIds);
-            })
+        $materials = Material::with(['branchStocks' => function ($q) use ($accessibleBranchIds) {
+                $q->whereIn('branch_id', $accessibleBranchIds)->with('branch');
+            }])
             ->when($request->search, function ($query, $search) {
                 $query->search($search);
             })
@@ -164,67 +162,6 @@ class MaterialController extends Controller
         $material->delete();
 
         return redirect()->route('materials.index')->with('success', 'Bahan berhasil dihapus!');
-    }
-
-    public function adjustStock(Request $request, Material $material)
-    {
-        $accessibleBranchIds = $this->getAccessibleBranchIds();
-
-        $hasAccess = $material->branchStocks()->whereIn('branch_id', $accessibleBranchIds)->exists();
-        if (! $hasAccess) {
-            abort(403, 'Anda tidak memiliki akses ke bahan ini.');
-        }
-
-        $request->validate([
-            'type' => 'required|in:add,reduce',
-            'quantity' => 'required|integer|min:1',
-            'reason' => 'nullable|string|max:255',
-            'branch_id' => 'nullable|exists:branches,id',
-        ]);
-
-        if ($request->filled('branch_id') && ! in_array($request->branch_id, $accessibleBranchIds)) {
-            abort(403, 'Anda tidak memiliki akses ke cabang ini.');
-        }
-
-        if ($request->type === 'add') {
-            if ($request->filled('branch_id')) {
-                $material->branchStocks()->updateOrCreate(
-                    ['branch_id' => $request->branch_id],
-                    ['stock' => DB::raw('stock + '.$request->quantity)]
-                );
-                // Update product stocks that use this material
-                \App\Models\Product::updateStocksFromMaterial($material, $request->branch_id);
-            } else {
-                $material->increment('stock', $request->quantity);
-                // Update product stocks for all branches (using fallback to material->stock)
-                \App\Models\Product::updateStocksFromMaterial($material);
-            }
-            $message = "Stok {$material->name} ditambah {$request->quantity} {$material->unit}.";
-        } else {
-            if ($request->filled('branch_id')) {
-                $branchStock = $material->branchStocks()->where('branch_id', $request->branch_id)->first();
-                if ($branchStock && $branchStock->stock < $request->quantity) {
-                    return back()->with('error', 'Stok tidak mencukupi di cabang tersebut!');
-                }
-                if ($branchStock) {
-                    $branchStock->decrement('stock', $request->quantity);
-                }
-                // Update product stocks that use this material
-                \App\Models\Product::updateStocksFromMaterial($material, $request->branch_id);
-            } else {
-                if ($material->stock < $request->quantity) {
-                    return back()->with('error', 'Stok tidak mencukupi!');
-                }
-                $material->decrement('stock', $request->quantity);
-                // Update ALL branch stocks for this material
-                $material->branchStocks()->decrement('stock', $request->quantity);
-                // Update product stocks for all branches
-                \App\Models\Product::updateStocksFromMaterial($material);
-            }
-            $message = "Stok {$material->name} dikurangi {$request->quantity} {$material->unit}.";
-        }
-
-        return back()->with('success', $message);
     }
 
     public function branchStock(Request $request, Material $material)
