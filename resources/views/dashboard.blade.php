@@ -5,6 +5,36 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Update clock
+    function updateClock() {
+        const now = new Date();
+        const timeElement = document.getElementById('current-time');
+        const dateElement = document.getElementById('current-date');
+
+        if (timeElement && dateElement) {
+            // Format time in 24-hour format (Indonesia)
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            timeElement.textContent = `${hours}:${minutes}:${seconds}`;
+
+            // Format date in Indonesian format
+            const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+            const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            const dayName = days[now.getDay()];
+            const day = now.getDate();
+            const monthName = months[now.getMonth()];
+            const year = now.getFullYear();
+            dateElement.textContent = `${dayName}, ${day} ${monthName} ${year}`;
+        }
+    }
+
+    // Initial update
+    updateClock();
+
+    // Update every second
+    setInterval(updateClock, 1000);
+
     // Revenue Chart
     const ctx = document.getElementById('revenueChart');
     if (ctx) {
@@ -86,8 +116,16 @@ document.addEventListener('DOMContentLoaded', function() {
 <div>
     <!-- Page Header -->
     <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-        <p class="text-gray-500 dark:text-gray-400">Selamat datang, {{ auth()->user()->name }}!</p>
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+                <p class="text-gray-500 dark:text-gray-400">Selamat datang, {{ auth()->user()->name }}!</p>
+            </div>
+            <div class="text-right">
+                <div id="current-time" class="text-lg font-semibold text-gray-900 dark:text-white"></div>
+                <div id="current-date" class="text-sm text-gray-500 dark:text-gray-400"></div>
+            </div>
+        </div>
     </div>
 
     <!-- Today's Stats -->

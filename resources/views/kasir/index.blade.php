@@ -13,9 +13,30 @@
 @endpush
 
 @section('content')
-<div x-data="posSystem()" x-init="init()" class="flex flex-col lg:flex-row gap-6">
-    <!-- Left Side - Product List -->
-    <div class="flex-1">
+<div x-data="posSystem()" x-init="init()" class="flex flex-col gap-6">
+    <!-- Header with Time (Full Width) -->
+    <div class="w-full">
+        <div class="flex items-center justify-between">
+            <div>
+                @if(auth()->user()->branch)
+                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ auth()->user()->branch->name }}</h1>
+                    <p class="text-gray-500 dark:text-gray-400">Kasir: {{ auth()->user()->name }}</p>
+                @else
+                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Kasir</h1>
+                    <p class="text-gray-500 dark:text-gray-400">Selamat datang, {{ auth()->user()->name }}</p>
+                @endif
+            </div>
+            <div class="text-right">
+                <div id="current-time" class="text-base font-semibold text-gray-900 dark:text-white"></div>
+                <div id="current-date" class="text-xs text-gray-500 dark:text-gray-400"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content: Products + Cart -->
+    <div class="flex flex-col lg:flex-row gap-6">
+        <!-- Left Side - Product List -->
+        <div class="flex-1">
         <!-- Search Bar -->
         <div class="mb-4">
             <div class="relative">
@@ -309,9 +330,10 @@
         </div>
         @endif
     </div>
+    </div>
 
     <!-- Receipt Modal -->
-    <div x-show="showReceipt" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @keydown.escape.window="closeReceipt()">
+    <div x-show="showReceipt" x-cloak x-effect="if (showReceipt) startCountdown()" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" @keydown.escape.window="closeReceipt()">
         <div class="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full max-h-[90vh] overflow-auto" @click.stop>
             <div id="receipt-content" class="p-6">
                 <div class="text-center mb-6">
@@ -367,6 +389,13 @@
                     Tutup
                 </button>
             </div>
+            <div class="px-4 pb-4">
+                <div class="text-center">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Modal akan otomatis tertutup dalam</p>
+                    <span id="countdown" class="text-lg font-bold text-teal-600 dark:text-teal-400">30</span>
+                    <span class="text-sm text-gray-500 dark:text-gray-400"> detik</span>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -390,9 +419,86 @@ function posSystem() {
         showReceipt: false,
         lastTransaction: null,
         isProcessing: false,
+        countdown: 30,
+        countdownInterval: null,
 
         init() {
             this.filteredProducts = this.products;
+            this.updateClock();
+            setInterval(() => this.updateClock(), 1000);
+        },
+
+        updateClock() {
+            const now = new Date();
+            const timeElement = document.getElementById('current-time');
+            const dateElement = document.getElementById('current-date');
+
+            if (timeElement && dateElement) {
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                timeElement.textContent = `${hours}:${minutes}:${seconds}`;
+
+                const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                const dayName = days[now.getDay()];
+                const day = now.getDate();
+                const monthName = months[now.getMonth()];
+                const year = now.getFullYear();
+                dateElement.textContent = `${dayName}, ${day} ${monthName} ${year}`;
+            }
+        },
+
+        startCountdown() {
+            this.countdown = 30;
+            this.$nextTick(() => {
+                const countdownEl = document.getElementById('countdown');
+                if (countdownEl) {
+                    countdownEl.textContent = this.countdown;
+                }
+            });
+
+            this.countdownInterval = setInterval(() => {
+                this.countdown--;
+                this.$nextTick(() => {
+                    const countdownEl = document.getElementById('countdown');
+                    if (countdownEl) {
+                        countdownEl.textContent = this.countdown;
+                    }
+                });
+
+                if (this.countdown <= 0) {
+                    this.closeReceipt();
+                }
+            }, 1000);
+        },
+
+        stopCountdown() {
+            if (this.countdownInterval) {
+                clearInterval(this.countdownInterval);
+                this.countdownInterval = null;
+            }
+        },
+
+        updateClock() {
+            const now = new Date();
+            const timeElement = document.getElementById('current-time');
+            const dateElement = document.getElementById('current-date');
+
+            if (timeElement && dateElement) {
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                timeElement.textContent = `${hours}:${minutes}:${seconds}`;
+
+                const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                const dayName = days[now.getDay()];
+                const day = now.getDate();
+                const monthName = months[now.getMonth()];
+                const year = now.getFullYear();
+                dateElement.textContent = `${dayName}, ${day} ${monthName} ${year}`;
+            }
         },
 
         get filteredProducts() {
@@ -555,11 +661,6 @@ function posSystem() {
                     this.paymentAmount = 0;
                     this.paymentAmountDisplay = '';
                     this.calculateTotals();
-                    
-                    // Refresh page after 2 seconds to update stock
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 2000);
                 } else {
                     alert(data.message || 'Terjadi kesalahan!');
                 }
@@ -572,6 +673,7 @@ function posSystem() {
         },
 
         closeReceipt() {
+            this.stopCountdown();
             this.showReceipt = false;
         },
 
