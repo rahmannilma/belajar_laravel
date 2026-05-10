@@ -343,7 +343,7 @@
                 
                 <div class="border-t border-b border-dashed border-gray-300 dark:border-gray-600 py-4 mb-4">
                     <p class="text-sm"><strong>No. Invoice:</strong> <span x-text="lastTransaction?.invoice_number"></span></p>
-                    <p class="text-sm"><strong>Tanggal:</strong> <span x-text="new Date().toLocaleString('id-ID')"></span></p>
+                    <p class="text-sm"><strong>Tanggal:</strong> <span x-text="lastTransaction ? new Date(lastTransaction.sale_date).toLocaleString('id-ID') : new Date().toLocaleString('id-ID')"></span></p>
                     <p class="text-sm"><strong>Kasir:</strong> {{ auth()->user()->name }}</p>
                 </div>
 
