@@ -15,14 +15,16 @@ class ClearMasterDataSeeder extends Seeder
     {
         Schema::disableForeignKeyConstraints();
 
-        DB::table('branch_category')->truncate();
-        DB::table('product_branch_stock')->truncate();
-        DB::table('material_branch_stock')->truncate();
-        DB::table('product_material')->truncate();
-        DB::table('products')->truncate();
-        DB::table('materials')->truncate();
-        DB::table('categories')->truncate();
-        DB::table('branches')->truncate();
+DB::table('branch_category')->truncate();
+         DB::table('product_branch_stock')->truncate();
+         DB::table('material_branch_stock')->truncate();
+         DB::table('product_material')->truncate();
+         DB::table('sale_items')->truncate();
+         DB::table('sales')->truncate();
+         DB::table('products')->truncate();
+         DB::table('materials')->truncate();
+         DB::table('categories')->truncate();
+         DB::table('branches')->truncate();
 
         Schema::enableForeignKeyConstraints();
     }

@@ -136,63 +136,9 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        // Create some sample sales for today
-        $owner = User::where('role', 'owner')->first();
-        $cashier = User::where('role', 'cashier')->first();
-
-        // Create 5 sales for today
-        for ($i = 0; $i < 5; $i++) {
-            $sale = \App\Models\Sale::create([
-                'user_id' => $cashier->id,
-                'sale_date' => now()->subHours(rand(1, 8)),
-                'discount_percent' => rand(0, 1) ? 0 : rand(5, 10),
-                'tax_percent' => 11,
-                'payment_method' => ['cash', 'qris', 'transfer'][rand(0, 2)],
-                'customer_name' => 'Pelanggan '.($i + 1),
-            ]);
-
-            // Add 2-4 random items to each sale
-            $items = Product::inRandomOrder()->limit(rand(2, 4))->get();
-            $subtotal = 0;
-            $totalCost = 0;
-
-            foreach ($items as $product) {
-                $quantity = rand(1, 3);
-                $price = $product->selling_price;
-                $costPrice = $product->purchase_price;
-
-                \App\Models\SaleItem::create([
-                    'sale_id' => $sale->id,
-                    'product_id' => $product->id,
-                    'product_name' => $product->name,
-                    'price' => $price,
-                    'quantity' => $quantity,
-                    'subtotal' => $price * $quantity,
-                    'cost_price' => $costPrice,
-                ]);
-
-                $subtotal += $price * $quantity;
-                $totalCost += $costPrice * $quantity;
-
-                // Reduce stock
-                $product->decrement('stock', $quantity);
-            }
-
-            $discountAmount = $subtotal * ($sale->discount_percent / 100);
-            $taxableAmount = $subtotal - $discountAmount;
-            $taxAmount = $taxableAmount * ($sale->tax_percent / 100);
-            $totalAmount = $taxableAmount + $taxAmount;
-            $profit = $totalAmount - $totalCost - $discountAmount;
-
-            $sale->update([
-                'subtotal' => $subtotal,
-                'discount_amount' => $discountAmount,
-                'tax_amount' => $taxAmount,
-                'total_amount' => $totalAmount,
-                'total_cost' => $totalCost,
-                'profit' => $profit,
-            ]);
-        }
+        $this->call([
+            SalesDataSeeder::class,
+        ]);
 
         $this->command->info('Database seeded successfully!');
         $this->command->info('Owner login: owner@pos.id / password');
