@@ -11,12 +11,15 @@
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Riwayat Penjualan</h1>
                 <p class="text-gray-500 dark:text-gray-400">Lihat dan filter transaksi penjualan</p>
             </div>
-            <div class="mt-4 sm:mt-0 flex gap-2">
+            <div class="mt-4 sm:mt-0 flex gap-2 flex-wrap">
                 @if(auth()->user()->isOwner())
                 <a href="{{ route('sales.by-branch') }}" class="inline-flex items-center px-4 py-2 bg-gray-500 text-white rounded-lg font-medium hover:bg-gray-600 transition-colors">
-                    🏪 Transaksi Cabin
+                    🏪 Transaksi Cabang
                 </a>
                 @endif
+                <a href="{{ route('sales.index', ['start_date' => now()->subDays(6)->format('Y-m-d'), 'end_date' => now()->format('Y-m-d')]) }}" class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors">
+                    📅 Transaksi 7 Hari Terakhir
+                </a>
                 <a href="{{ route('sales.daily-report') }}" class="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors">
                     📊 Laporan Harian
                 </a>

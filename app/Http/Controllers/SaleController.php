@@ -414,7 +414,7 @@ class SaleController extends Controller
         // Branches for filter - only accessible ones
         $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
 
-        $startDate = $request->start_date ? Carbon::parse($request->start_date)->startOfDay() : null;
+        $startDate = $request->start_date ? Carbon::parse($request->start_date)->startOfDay() : Carbon::now()->subDays(6)->startOfDay();
         $endDate = $request->end_date ? Carbon::parse($request->end_date)->endOfDay() : Carbon::now()->endOfDay();
 
         $query = Sale::with('user', 'items', 'branch')->completed();
@@ -473,7 +473,6 @@ class SaleController extends Controller
 
         return view('sales.branch-transactions', compact(
             'branches',
-            'sales',
             'overallTotal',
             'overallProfit',
             'overallCost',

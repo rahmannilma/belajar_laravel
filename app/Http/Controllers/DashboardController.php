@@ -28,8 +28,6 @@ class DashboardController extends Controller
     {
         $accessibleBranchIds = $this->getAccessibleBranchIds();
         $today = Carbon::today();
-        $startOfWeek = Carbon::now()->startOfWeek();
-        $endOfWeek = Carbon::now()->endOfWeek();
         $startOfMonth = Carbon::now()->startOfMonth();
         $endOfMonth = Carbon::now()->endOfMonth();
 
@@ -40,15 +38,7 @@ class DashboardController extends Controller
         $todayTransactions = $todaySales->count();
         $todayItems = $todaySales->withCount('items')->get()->sum('items_count');
 
-        // Weekly statistics
-        $weeklySales = Sale::whereBetween('sale_date', [$startOfWeek, $endOfWeek])
-            ->whereIn('branch_id', $accessibleBranchIds)
-            ->completed();
-        $weeklyTotal = $weeklySales->sum('total_amount');
-        $weeklyProfit = $weeklySales->sum('profit');
-        $weeklyTransactions = $weeklySales->count();
-
-        // Monthly statistics
+        // Monthly statistics (across all accessible branches)
         $monthlySales = Sale::whereBetween('sale_date', [$startOfMonth, $endOfMonth])
             ->whereIn('branch_id', $accessibleBranchIds)
             ->completed();
@@ -56,8 +46,21 @@ class DashboardController extends Controller
         $monthlyProfit = $monthlySales->sum('profit');
         $monthlyTransactions = $monthlySales->count();
 
-        // Branch summary for today with yesterday & 30-day trend - only user's branches
+        // Monthly statistics per branch
         $branches = Branch::whereIn('id', $accessibleBranchIds)->where('is_active', true)->orderBy('name')->get();
+        $branchMonthlyStats = $branches->map(function ($branch) use ($startOfMonth, $endOfMonth) {
+            $sales = Sale::where('branch_id', $branch->id)
+                ->whereBetween('sale_date', [$startOfMonth, $endOfMonth])
+                ->completed();
+            return [
+                'branch' => $branch,
+                'monthly_total' => $sales->sum('total_amount'),
+                'monthly_profit' => $sales->sum('profit'),
+                'monthly_transactions' => $sales->count(),
+            ];
+        });
+
+        // Branch summary for today with yesterday & 30-day trend - only user's branches
         $yesterday = Carbon::yesterday();
 
         $branchSummaries = $branches->map(function ($branch) use ($today, $yesterday) {
@@ -160,24 +163,37 @@ class DashboardController extends Controller
             ];
         });
 
-        // Weekly sales data for table display
-        $last7Days = [];
-        for ($i = 6; $i >= 0; $i--) {
-            $date = Carbon::today()->subDays($i);
-            $sales = Sale::whereDate('sale_date', $date)
-                ->whereIn('branch_id', $accessibleBranchIds)
-                ->completed()
-                ->sum('total_amount');
-            $count = Sale::whereDate('sale_date', $date)
-                ->whereIn('branch_id', $accessibleBranchIds)
-                ->completed()
-                ->count();
+         // Branch-wise last 7 days data for table display
+        $branchLast7Days = [];
+        foreach ($branches as $branch) {
+            $dailyData = [];
+            $weeklyTotal = 0;
+            $weeklyTransactions = 0;
+            for ($i = 6; $i >= 0; $i--) {
+                $date = Carbon::today()->subDays($i);
+                $sales = Sale::where('branch_id', $branch->id)
+                    ->whereDate('sale_date', $date)
+                    ->completed()
+                    ->sum('total_amount');
+                $count = Sale::where('branch_id', $branch->id)
+                    ->whereDate('sale_date', $date)
+                    ->completed()
+                    ->count();
 
-            $last7Days[] = [
-                'date' => $date->format('Y-m-d'),
-                'label' => $this->indoDayName($date) . ', ' . $date->format('d') . ' ' . $this->indoMonthName($date),
-                'sales' => $sales,
-                'count' => $count,
+                $dailyData[] = [
+                    'date' => $date->format('Y-m-d'),
+                    'label' => $this->indoDayName($date) . ', ' . $date->format('d') . ' ' . $this->indoMonthName($date),
+                    'sales' => $sales,
+                    'count' => $count,
+                ];
+                $weeklyTotal += $sales;
+                $weeklyTransactions += $count;
+            }
+            $branchLast7Days[$branch->id] = [
+                'branch' => $branch,
+                'daily' => $dailyData,
+                'weekly_total' => $weeklyTotal,
+                'weekly_transactions' => $weeklyTransactions,
             ];
         }
 
@@ -239,10 +255,6 @@ class DashboardController extends Controller
             ->whereIn('branch_id', $accessibleBranchIds)
             ->completed()
             ->sum('total_amount');
-        $yesterdayTransactions = Sale::whereDate('sale_date', Carbon::yesterday())
-            ->whereIn('branch_id', $accessibleBranchIds)
-            ->completed()
-            ->count();
         $todayComparison = $yesterdaySales > 0
             ? (($todayTotal - $yesterdaySales) / $yesterdaySales) * 100
             : ($todayTotal > 0 ? 100 : 0);
@@ -251,18 +263,13 @@ class DashboardController extends Controller
             'todayTotal',
             'todayProfit',
             'yesterdaySales',
-            'yesterdayTransactions',
             'todayTransactions',
             'todayItems',
-            'weeklyTotal',
-            'weeklyProfit',
-            'weeklyTransactions',
             'monthlyTotal',
             'monthlyProfit',
             'monthlyTransactions',
             'lowStockProducts',
             'last30Days',
-            'last7Days',
             'topProducts',
             'popularProducts',
             'categorySales',
@@ -271,7 +278,9 @@ class DashboardController extends Controller
             'branchSummaries',
             'branchCharts',
             'branchData',
-            'branches'
+            'branches',
+            'branchMonthlyStats',
+            'branchLast7Days'
         ));
     }
 }

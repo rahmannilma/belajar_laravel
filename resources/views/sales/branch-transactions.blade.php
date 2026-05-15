@@ -71,91 +71,105 @@
         </div>
     </div>
 
-    <!-- Sales Table -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead class="bg-gray-50 dark:bg-gray-700/50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Invoice</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tanggal</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kasir</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Items</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Untung/Rugi</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bayar</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                    @forelse($sales as $sale)
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <td class="px-6 py-4">
-                            <span class="font-mono font-medium text-gray-900 dark:text-white">{{ $sale->invoice_number }}</span>
-                        </td>
-                        <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                            {{ $sale->sale_date->format('d/m/Y H:i') }}
-                        </td>
-                        <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{{ $sale->user->name }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                            @php
-                                $itemNames = $sale->items->take(3)->map(function($item) {
-                                    return $item->product->name . ' x' . $item->quantity;
-                                })->join(', ');
-                            @endphp
-                            <span title="{{ $sale->items->map(function($i) { return $i->product->name . ' x' . $i->quantity; })->join(', ') }}">
-                                {{ $itemNames }}{{ $sale->items->count() > 3 ? '...' : '' }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">Rp {{ number_format($sale->total_amount, 0, ',', '.') }}</td>
-                        <td class="px-6 py-4 text-sm {{ $sale->profit >= 0 ? 'text-green-600' : 'text-red-600' }}">
-                            Rp {{ number_format($sale->profit, 0, ',', '.') }}
-                        </td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-700">
-                                {{ $sale->payment_method_label }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4">
-                            @if($sale->status === 'cancelled')
-                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                                Dibatalkan
-                            </span>
-                            @else
-                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                                Selesai
-                            </span>
-                            @endif
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            <div class="flex items-center justify-end gap-2">
-                                @if($sale->status !== 'cancelled')
-                                <form action="{{ route('sales.cancel', $sale) }}" method="POST" class="inline" onsubmit="return confirm('Yakin ingin membatalkan transaksi ini? Stok akan dikembalikan.')">
-                                    @csrf
-                                    <button type="submit" class="p-2 text-gray-400 hover:text-red-500 transition-colors" title="Batalkan Transaksi">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                        </svg>
-                                    </button>
-                                </form>
-                                @endif
-                            </div>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="9" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                            <svg class="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                            <p>Tidak ada transaksi ditemukan</p>
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+     <!-- Sales Table -->
+     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+         @foreach($branchData as $branchInfo)
+         <div class="mb-8">
+             <div class="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4 border border-gray-200 dark:border-gray-700">
+                 <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ $branchInfo['branch']->name }}</h2>
+                 <div class="grid grid-cols-2 gap-4 text-sm text-gray-500 dark:text-gray-400">
+                     <div>Total Penjualan: Rp {{ number_format($branchInfo['total_sales'], 0, ',', '.') }}</div>
+                     <div>Untung/Rugi: Rp {{ number_format($branchInfo['total_profit'], 0, ',', '.') }}</div>
+                     <div>Total Biaya: Rp {{ number_format($branchInfo['total_cost'], 0, ',', '.') }}</div>
+                     <div>Jumlah Transaksi: {{ $branchInfo['transaction_count'] }}</div>
+                 </div>
+             </div>
+             
+             @if(count($branchInfo['sales']) > 0)
+             <div class="overflow-x-auto">
+                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                     <thead class="bg-gray-50 dark:bg-gray-700/50">
+                         <tr>
+                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Invoice</th>
+                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tanggal</th>
+                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Kasir</th>
+                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Items</th>
+                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total</th>
+                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Untung/Rugi</th>
+                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bayar</th>
+                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Aksi</th>
+                         </tr>
+                     </thead>
+                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                         @forelse($branchInfo['sales'] as $sale)
+                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                             <td class="px-6 py-4">
+                                 <span class="font-mono font-medium text-gray-900 dark:text-white">{{ $sale->invoice_number }}</span>
+                             </td>
+                             <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                 {{ $sale->sale_date->format('d/m/Y H:i') }}
+                             </td>
+                             <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{{ $sale->user->name }}</td>
+                             <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                 @php
+                                     $itemNames = $sale->items->take(3)->map(function($item) {
+                                         return $item->product->name . ' x' . $item->quantity;
+                                     })->join(', ');
+                                 @endphp
+                                 <span title="{{ $sale->items->map(function($i) { return $i->product->name . ' x' . $i->quantity; })->join(', ') }}">
+                                     {{ $itemNames }}{{ $sale->items->count() > 3 ? '...' : '' }}
+                                 </span>
+                             </td>
+                             <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">Rp {{ number_format($sale->total_amount, 0, ',', '.') }}</td>
+                             <td class="px-6 py-4 text-sm {{ $sale->profit >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                                 Rp {{ number_format($sale->profit, 0, ',', '.') }}
+                             </td>
+                             <td class="px-6 py-4">
+                                 <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-700">
+                                     {{ $sale->payment_method_label }}
+                                 </span>
+                             </td>
+                             <td class="px-6 py-4">
+                                 @if($sale->status === 'cancelled')
+                                 <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                                     Dibatalkan
+                                 </span>
+                                 @else
+                                 <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                     Selesai
+                                 </span>
+                                 @endif
+                             </td>
+                             <td class="px-6 py-4 text-right">
+                                 <div class="flex items-center justify-end gap-2">
+                                     @if($sale->status !== 'cancelled')
+                                     <form action="{{ route('sales.cancel', $sale) }}" method="POST" class="inline" onsubmit="return confirm('Yakin ingin membatalkan transaksi ini? Stok akan dikembalikan.')">
+                                         @csrf
+                                         <button type="submit" class="p-2 text-gray-400 hover:text-red-500 transition-colors" title="Batalkan Transaksi">
+                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                             </svg>
+                                         </button>
+                                     </form>
+                                     @endif
+                                 </div>
+                             </td>
+                         </tr>
+                         @empty
+                         <tr>
+                             <td colspan="9" class="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                                 <p>Tidak ada transaksi ditemukan untuk cabang ini</p>
+                             </td>
+                         </tr>
+                         @endforelse
+                     </tbody>
+                 </table>
+             </div>
+             @endif
+         </div>
+         @endforeach
+     </div>
 
         <!-- Pagination -->
         <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">

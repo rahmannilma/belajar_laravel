@@ -185,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 
     <!-- Today's Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <!-- Today's Sales -->
         <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
             <div class="flex items-center justify-between">
@@ -206,26 +206,6 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         </div>
 
-        <!-- Yesterday's Sales -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Penjualan Kemarin</p>
-                    <p class="text-lg font-bold text-gray-900 dark:text-white mt-1">Rp {{ number_format($yesterdaySales, 0, ',', '.') }}</p>
-                    @if($todayComparison != 0)
-                    <p class="text-[10px] mt-0.5 {{ $todayComparison >= 0 ? 'text-red-600' : 'text-green-600' }}">
-                        {{ $todayComparison >= 0 ? '↑' : '↓' }} {{ abs(round($todayComparison, 1)) }}% dari hari ini
-                    </p>
-                    @endif
-                </div>
-                <div class="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
-                    <svg class="w-4 h-4 text-orange-500 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                    </svg>
-                </div>
-            </div>
-        </div>
-
         <!-- Transactions -->
         <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
             <div class="flex items-center justify-between">
@@ -237,22 +217,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="w-8 h-8 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg flex items-center justify-center">
                     <svg class="w-4 h-4 text-cyan-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
-                    </svg>
-                </div>
-            </div>
-        </div>
-
-        <!-- Weekly Sales -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Penjualan Minggu Ini</p>
-                    <p class="text-lg font-bold text-gray-900 dark:text-white mt-1">Rp {{ number_format($weeklyTotal, 0, ',', '.') }}</p>
-                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{{ $weeklyTransactions }} transaksi</p>
-                </div>
-                <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                    <svg class="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                     </svg>
                 </div>
             </div>
@@ -289,9 +253,48 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
         </div>
-    </div>
+     </div>
 
-    <!-- Charts Row (30 Hari) -->
+      <!-- Total Penjualan & Untung Bulan Ini per Cabang -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          @foreach($branchMonthlyStats as $data)
+          {{-- Card: Total Penjualan Bulan Ini --}}
+          <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between">
+                  <div>
+                      <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Penjualan Bulan Ini</p>
+                      <p class="text-[10px] text-gray-400 mt-0.5">{{ $data['branch']->name }}</p>
+                      <p class="text-lg font-bold text-gray-900 dark:text-white mt-1">Rp {{ number_format($data['monthly_total'], 0, ',', '.') }}</p>
+                      <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{{ $data['monthly_transactions'] }} transaksi</p>
+                  </div>
+                  <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                      <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                      </svg>
+                  </div>
+              </div>
+          </div>
+
+          {{-- Card: Untung Bulan Ini --}}
+          <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+              <div class="flex items-center justify-between">
+                  <div>
+                      <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Untung Bulan Ini</p>
+                      <p class="text-[10px] text-gray-400 mt-0.5">{{ $data['branch']->name }}</p>
+                      <p class="text-lg font-bold {{ $data['monthly_profit'] >= 0 ? 'text-green-600' : 'text-red-600' }} mt-1">Rp {{ number_format($data['monthly_profit'], 0, ',', '.') }}</p>
+                      <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{{ $data['monthly_transactions'] }} transaksi</p>
+                  </div>
+                  <div class="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                      <svg class="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                      </svg>
+                  </div>
+              </div>
+          </div>
+          @endforeach
+      </div>
+
+     <!-- Charts Row (30 Hari) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <!-- Revenue Chart -->
         <div class="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
@@ -362,57 +365,67 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 @endif
 
-     <!-- Penjualan 7 Hari Terakhir (Tabel) -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-4 overflow-hidden">
-        <div class="p-3 border-b border-gray-200 dark:border-gray-700">
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">📈 Penjualan 7 Hari Terakhir</h3>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-xs">
-                <thead class="bg-gray-50 dark:bg-gray-700/50">
-                    <tr>
-                        <th class="px-3 py-1.5 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tanggal</th>
-                        <th class="px-3 py-1.5 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Trans</th>
-                        <th class="px-3 py-1.5 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Jumlah</th>
-                        <th class="px-3 py-1.5 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">vs</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                    @foreach($last7Days as $day)
-                    @php
-                        $prevDay = $loop->index > 0 ? $last7Days[$loop->index - 1]['sales'] : null;
-                        $change = $prevDay !== null && $prevDay > 0 ? (($day['sales'] - $prevDay) / $prevDay) * 100 : null;
-                    @endphp
-                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                        <td class="px-3 py-1.5 whitespace-nowrap">
-                            <div class="font-medium text-gray-900 dark:text-white">{{ $day['label'] }}</div>
-                            <div class="text-[9px] text-gray-500 dark:text-gray-400">{{ $day['date'] }}</div>
-                        </td>
-                        <td class="px-3 py-1.5 whitespace-nowrap text-right text-gray-900 dark:text-white">{{ $day['count'] }}</td>
-                        <td class="px-3 py-1.5 whitespace-nowrap text-right font-semibold text-gray-900 dark:text-white">Rp {{ number_format($day['sales'], 0, ',', '.') }}</td>
-                        <td class="px-3 py-1.5 whitespace-nowrap text-right">
-                            @if($change !== null)
-                                <span class="text-[9px] font-medium {{ $change >= 0 ? 'text-green-600' : 'text-red-600' }}">
-                                    {{ $change >= 0 ? '↑' : '↓' }} {{ abs(round($change, 1)) }}%
-                                </span>
-                            @else
-                                <span class="text-[9px] text-gray-400">—</span>
-                            @endif
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-                <tfoot class="bg-gray-50 dark:bg-gray-700/50">
-                    <tr class="font-semibold">
-                        <td class="px-3 py-1.5 text-left text-gray-900 dark:text-white">Total</td>
-                        <td class="px-3 py-1.5 text-right text-gray-900 dark:text-white">{{ $weeklyTransactions }}</td>
-                        <td class="px-3 py-1.5 text-right text-gray-900 dark:text-white">Rp {{ number_format($weeklyTotal, 0, ',', '.') }}</td>
-                        <td class="px-3 py-1.5 text-right"></td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
-    </div>
+      <!-- Penjualan 7 Hari Terakhir per Cabang -->
+     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+         @foreach($branchLast7Days as $branchData)
+         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+             <div class="p-3 border-b border-gray-200 dark:border-gray-700">
+                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white">📈 Penjualan 7 Hari Terakhir: {{ $branchData['branch']->name }}</h3>
+             </div>
+             <div class="overflow-x-auto">
+                 <table class="w-full text-xs">
+                     <thead class="bg-gray-50 dark:bg-gray-700/50">
+                         <tr>
+                             <th class="px-3 py-1.5 text-left font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tanggal</th>
+                             <th class="px-3 py-1.5 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Trans</th>
+                             <th class="px-3 py-1.5 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Jumlah</th>
+                             <th class="px-3 py-1.5 text-right font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">vs</th>
+                         </tr>
+                     </thead>
+                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                         @php
+                             $prevDaySales = null;
+                         @endphp
+                         @foreach($branchData['daily'] as $index => $day)
+                             @php
+                                 $change = null;
+                                 if ($prevDaySales !== null && $prevDaySales > 0) {
+                                     $change = (($day['sales'] - $prevDaySales) / $prevDaySales) * 100;
+                                 }
+                                 $prevDaySales = $day['sales'];
+                             @endphp
+                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                 <td class="px-3 py-1.5 whitespace-nowrap">
+                                     <div class="font-medium text-gray-900 dark:text-white">{{ $day['label'] }}</div>
+                                     <div class="text-[9px] text-gray-500 dark:text-gray-400">{{ $day['date'] }}</div>
+                                 </td>
+                                 <td class="px-3 py-1.5 whitespace-nowrap text-right text-gray-900 dark:text-white">{{ $day['count'] }}</td>
+                                 <td class="px-3 py-1.5 whitespace-nowrap text-right font-semibold text-gray-900 dark:text-white">Rp {{ number_format($day['sales'], 0, ',', '.') }}</td>
+                                 <td class="px-3 py-1.5 whitespace-nowrap text-right">
+                                     @if($change !== null)
+                                         <span class="text-[9px] font-medium {{ $change >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                                             {{ $change >= 0 ? '↑' : '↓' }} {{ abs(round($change, 1)) }}%
+                                         </span>
+                                     @else
+                                         <span class="text-[9px] text-gray-400">—</span>
+                                     @endif
+                                 </td>
+                             </tr>
+                         @endforeach
+                     </tbody>
+                     <tfoot class="bg-gray-50 dark:bg-gray-700/50">
+                         <tr class="font-semibold">
+                             <td class="px-3 py-1.5 text-left text-gray-900 dark:text-white">Total</td>
+                             <td class="px-3 py-1.5 text-right text-gray-900 dark:text-white">{{ $branchData['weekly_transactions'] }}</td>
+                             <td class="px-3 py-1.5 text-right text-gray-900 dark:text-white">Rp {{ number_format($branchData['weekly_total'], 0, ',', '.') }}</td>
+                             <td class="px-3 py-1.5 text-right"></td>
+                         </tr>
+                     </tfoot>
+                 </table>
+             </div>
+         </div>
+         @endforeach
+     </div>
 
     <!-- Bottom Row -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
