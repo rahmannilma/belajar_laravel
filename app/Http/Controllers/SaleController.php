@@ -369,6 +369,11 @@ class SaleController extends Controller
             abort(403, 'Anda tidak dapat membatalkan transaksi cabang lain!');
         }
 
+        // Cashier can only cancel their own sales
+        if (! $user->isOwner() && $user->id !== $sale->user_id) {
+            abort(403, 'Anda hanya dapat membatalkan transaksi yang Anda buat sendiri!');
+        }
+
         // Cannot cancel already cancelled sales
         if ($sale->isCancelled()) {
             abort(400, 'Transaksi sudah dibatalkan!');

@@ -20,16 +20,19 @@
                 <a href="{{ route('sales.index', ['start_date' => now()->subDays(6)->format('Y-m-d'), 'end_date' => now()->format('Y-m-d')]) }}" class="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors">
                     📅 Transaksi 7 Hari Terakhir
                 </a>
+                @if(auth()->user()->isOwner())
                 <a href="{{ route('sales.daily-report') }}" class="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors">
                     📊 Laporan Harian
                 </a>
                 <a href="{{ route('sales.weekly-report') }}" class="inline-flex items-center px-4 py-2 bg-purple-500 text-white rounded-lg font-medium hover:bg-purple-600 transition-colors">
                     📈 Laporan Mingguan
                 </a>
+                @endif
             </div>
         </div>
     </div>
 
+    @if(auth()->user()->isOwner())
     <!-- Summary Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
@@ -41,10 +44,12 @@
             <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $totalTransactions }}</p>
         </div>
     </div>
+    @endif
 
 <!-- Filters -->
 
 
+    @if(auth()->user()->isOwner())
     <!-- Export -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
         <form action="{{ route('sales.export-csv') }}" method="GET" class="p-4 flex flex-wrap gap-4 items-end">
@@ -62,6 +67,7 @@
             </button>
         </form>
     </div>
+    @endif
 
     <!-- Sales Table -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -116,7 +122,7 @@
                             </span>
                             @endif
                         </td>
-                        <td class="px-6 py-4 text-right">
+<td class="px-6 py-4 text-right">
                             <div class="flex items-center justify-end gap-2">
                                 <a href="{{ route('sales.show', $sale) }}" class="p-2 text-gray-400 hover:text-teal-500 transition-colors">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,17 +135,17 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
                                     </svg>
                                 </a>
-                                @if(auth()->user()->isOwner() || auth()->user()->branch_id === $sale->branch_id)
-                                @if($sale->status !== 'cancelled')
-                                <form action="{{ route('sales.cancel', $sale) }}" method="POST" class="inline" onsubmit="return confirm('Yakin ingin membatalkan transaksi ini? Stok akan dikembalikan.')">
-                                    @csrf
-                                    <button type="submit" class="p-2 text-gray-400 hover:text-red-500 transition-colors" title="Batalkan Transaksi">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                        </svg>
-                                    </button>
-                                </form>
-                                @endif
+                                @if(auth()->user()->isOwner() || (auth()->user()->branch_id === $sale->branch_id && auth()->user()->id === $sale->user_id))
+                                    @if($sale->status !== 'cancelled')
+                                    <form action="{{ route('sales.cancel', $sale) }}" method="POST" class="inline" onsubmit="return confirm('Yakin ingin membatalkan transaksi ini? Stok akan dikembalikan.')">
+                                        @csrf
+                                        <button type="submit" class="p-2 text-gray-400 hover:text-red-500 transition-colors" title="Batalkan Transaksi">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                            </svg>
+                                        </button>
+                                    </form>
+                                    @endif
                                 @endif
                             </div>
                         </td>

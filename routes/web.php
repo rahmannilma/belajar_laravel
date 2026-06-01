@@ -79,15 +79,22 @@ Route::middleware('auth')->group(function () {
     Route::get('/cabang/stok/{branch}', [BranchController::class, 'stockOverview']);
     Route::get('/api/cabang/stok/{branch}', [BranchController::class, 'stockApi']);
 
-    // Sales (owner only)
-    Route::resource('sales', SaleController::class)->only(['index', 'show', 'destroy']);
-    Route::post('/sales/{sale}/cancel', [SaleController::class, 'cancel'])->name('sales.cancel');
-    Route::get('/sales/daily-report', [SaleController::class, 'dailyReport'])->name('sales.daily-report');
-    Route::get('/sales/weekly-report', [SaleController::class, 'weeklyReport'])->name('sales.weekly-report');
-    Route::get('/sales/export-csv', [SaleController::class, 'exportCsv'])->name('sales.export-csv');
-    Route::get('/sales/print-daily', [SaleController::class, 'printDailyReport'])->name('sales.print-daily');
-    Route::get('/transaksi-cabang', [SaleController::class, 'branchTransactions'])->name('sales.by-branch');
-    Route::get('/sales/by-branch-new', [SaleController::class, 'branchTransactions'])->name('sales.by-branch-new');
+    // Sales (owner and cashier)
+    Route::middleware('role:owner,cashier')->group(function () {
+        // Sales for viewing (owner and cashier)
+        Route::resource('sales', SaleController::class)->only(['index', 'show']);
+        Route::post('/sales/{sale}/cancel', [SaleController::class, 'cancel'])->name('sales.cancel');
+    });
+
+    // Sales reports and export (owner only)
+    Route::middleware('role:owner')->group(function () {
+        Route::get('/sales/daily-report', [SaleController::class, 'dailyReport'])->name('sales.daily-report');
+        Route::get('/sales/weekly-report', [SaleController::class, 'weeklyReport'])->name('sales.weekly-report');
+        Route::get('/sales/export-csv', [SaleController::class, 'exportCsv'])->name('sales.export-csv');
+        Route::get('/sales/print-daily', [SaleController::class, 'printDailyReport'])->name('sales.print-daily');
+        Route::get('/transaksi-cabang', [SaleController::class, 'branchTransactions'])->name('sales.by-branch');
+        Route::get('/sales/by-branch-new', [SaleController::class, 'branchTransactions'])->name('sales.by-branch-new');
+    });
 
     // Kasir / POS (cashier only)
     Route::middleware('role:cashier')->group(function () {
