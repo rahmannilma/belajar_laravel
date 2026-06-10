@@ -278,8 +278,8 @@
             </div>
         </div>
 
-        <!-- Recent Transactions (Owner only) -->
-        @if(auth()->user()->isOwner() && $recentSales->count() > 0)
+        <!-- Recent Transactions -->
+        @if($recentSales->count() > 0)
         <div class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
             <div class="p-4 border-b border-gray-200 dark:border-gray-700">
                 <h3 class="font-semibold text-gray-900 dark:text-white">Transaksi Hari Ini</h3>
@@ -315,7 +315,7 @@
                                 @endif
                             </td>
                             <td class="px-4 py-3 text-right">
-                                @if($sale->status !== 'cancelled')
+                                @if($sale->status !== 'cancelled' && (auth()->user()->isOwner() || auth()->user()->id == $sale->user_id))
                                 <form action="{{ route('sales.cancel', $sale) }}" method="POST" class="inline" onsubmit="return confirm('Yakin ingin membatalkan transaksi ini?')">
                                     @csrf
                                     <button type="submit" class="p-1 text-gray-400 hover:text-red-500 transition-colors inline-block" title="Batalkan Transaksi">

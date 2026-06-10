@@ -370,7 +370,7 @@ class SaleController extends Controller
         }
 
         // Cashier can only cancel their own sales
-        if (! $user->isOwner() && $user->id !== $sale->user_id) {
+        if (! $user->isOwner() && $user->id != $sale->user_id) {
             abort(403, 'Anda hanya dapat membatalkan transaksi yang Anda buat sendiri!');
         }
 
