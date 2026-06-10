@@ -285,7 +285,7 @@
                 <h3 class="font-semibold text-gray-900 dark:text-white">Transaksi Hari Ini</h3>
             </div>
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <table class="min-w-[700px] w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead class="bg-gray-50 dark:bg-gray-700/50">
                         <tr>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Invoice</th>
@@ -318,7 +318,11 @@
                                 @if($sale->status !== 'cancelled')
                                 <form action="{{ route('sales.cancel', $sale) }}" method="POST" class="inline" onsubmit="return confirm('Yakin ingin membatalkan transaksi ini?')">
                                     @csrf
-                                    <button type="submit" class="text-xs text-red-500 hover:text-red-700">Batalkan</button>
+                                    <button type="submit" class="p-1 text-gray-400 hover:text-red-500 transition-colors inline-block" title="Batalkan Transaksi">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                    </button>
                                 </form>
                                 @endif
                             </td>
@@ -620,6 +624,17 @@ function posSystem() {
             this.paymentAmountDisplay = amount.toLocaleString('id-ID');
         },
 
+        async reloadProducts() {
+            try {
+                const response = await fetch('{{ route('api.kasir.products-list') }}');
+                if (response.ok) {
+                    this.products = await response.json();
+                }
+            } catch (error) {
+                console.error('Error reloading products:', error);
+            }
+        },
+
         async processTransaction() {
             if (this.paymentMethod === 'cash' && this.changeAmount < 0) {
                 alert('Uang yang diberikan kurang!');
@@ -661,6 +676,7 @@ function posSystem() {
                     this.paymentAmount = 0;
                     this.paymentAmountDisplay = '';
                     this.calculateTotals();
+                    await this.reloadProducts();
                 } else {
                     alert(data.message || 'Terjadi kesalahan!');
                 }

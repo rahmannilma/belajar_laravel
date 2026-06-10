@@ -105,6 +105,7 @@ Route::middleware('auth')->group(function () {
 
         // Kasir API
         Route::prefix('api')->group(function () {
+            Route::get('/kasir/products-list', [KasirController::class, 'getProducts'])->name('api.kasir.products-list');
             Route::get('/kasir/products', [KasirController::class, 'searchProducts'])->name('api.kasir.products');
             Route::get('/kasir/products/{product}', [KasirController::class, 'getProduct'])->name('api.kasir.product');
             Route::get('/kasir/popular', [KasirController::class, 'popularProducts'])->name('api.kasir.popular');

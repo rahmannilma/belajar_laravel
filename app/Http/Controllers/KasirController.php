@@ -158,6 +158,9 @@ class KasirController extends Controller
                     } else {
                         $material->decrement('stock', $material->pivot->quantity * $quantity);
                     }
+
+                    // Update stocks of other products that depend on this material
+                    Product::updateStocksFromMaterial($material, $branchId);
                 }
             }
 
@@ -397,6 +400,54 @@ class KasirController extends Controller
 
                 return $product;
             });
+
+        return response()->json($products);
+    }
+
+    public function getProducts(Request $request)
+    {
+        $branchId = auth()->user()->branch_id;
+
+        $products = Product::active()
+            ->with('category', 'branchStocks', 'materials.branchStocks')
+            ->orderBy('name')
+            ->get()
+            ->filter(function ($product) use ($branchId) {
+                $branchStock = $product->branchStocks()->where('branch_id', $branchId)->first();
+                if (! $branchStock) {
+                    return false;
+                }
+
+                $productStock = $branchStock->stock;
+                if ($productStock <= 0) {
+                    return false;
+                }
+
+                foreach ($product->materials as $material) {
+                    $materialBranchStock = $material->branchStocks()->where('branch_id', $branchId)->first();
+                    if (! $materialBranchStock) {
+                        return false;
+                    }
+                    $materialStock = $materialBranchStock->stock;
+                    if ($materialStock <= 0) {
+                        return false;
+                    }
+                }
+
+                return true;
+            })
+            ->map(function ($product) use ($branchId) {
+                $branchStock = $product->branchStocks()->where('branch_id', $branchId)->first();
+                $product->display_stock = $branchStock?->stock ?? 0;
+                $product->stock = $branchStock?->stock ?? 0;
+
+                if ($product->image) {
+                    $product->image = \Illuminate\Support\Facades\Storage::url($product->image);
+                }
+
+                return $product;
+            })
+            ->values();
 
         return response()->json($products);
     }

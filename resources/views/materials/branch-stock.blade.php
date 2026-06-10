@@ -73,15 +73,28 @@
                 </table>
             </div>
 
-            <div class="mt-6 flex justify-end gap-3">
-                <a href="{{ route('materials.index') }}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-                    Batal
-                </a>
-                <button type="submit" class="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600">
-                    Simpan Semua
+            <div class="mt-6 flex justify-end gap-3 border-t border-gray-200 dark:border-gray-700 pt-6">
+                @if(request()->has('new'))
+                    <button type="button" onclick="if(confirm('Apakah Anda yakin ingin membatalkan penambahan bahan ini? Bahan yang baru ditambahkan akan dihapus.')) document.getElementById('delete-new-material-form').submit();" class="px-6 py-2 border border-red-300 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-200 active:scale-95 font-medium">
+                        Batalkan
+                    </button>
+                @else
+                    <a href="{{ route('materials.index') }}" class="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 active:scale-95 font-medium">
+                        Batalkan
+                    </a>
+                @endif
+                <button type="submit" class="px-6 py-2 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg font-medium hover:from-teal-600 hover:to-cyan-700 transition-all duration-200 hover:shadow-md active:scale-95">
+                    Simpan
                 </button>
             </div>
         </form>
+
+        @if(request()->has('new'))
+            <form id="delete-new-material-form" action="{{ route('materials.destroy', $material) }}" method="POST" class="hidden">
+                @csrf
+                @method('DELETE')
+            </form>
+        @endif
     </div>
 </div>
 @endsection

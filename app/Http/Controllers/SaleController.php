@@ -399,6 +399,9 @@ class SaleController extends Controller
                 } else {
                     $material->increment('stock', $material->pivot->quantity * $item->quantity);
                 }
+
+                // Update stocks of other products that depend on this material
+                \App\Models\Product::updateStocksFromMaterial($material, $branchId);
             }
         }
 

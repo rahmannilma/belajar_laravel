@@ -43,58 +43,77 @@
          </div>
 
          @if($product->hasMaterials())
-         <!-- Product dengan bahan baku - stok dihitung otomatis -->
-         <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-6">
-             <div class="flex items-start">
-                 <div class="flex-shrink-0">
-                     <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                     </svg>
-                 </div>
-                 <div class="ml-3">
-                     <h3 class="text-sm font-semibold text-purple-800 dark:text-purple-200">Stok Dihitung Otomatis</h3>
-                     <p class="mt-1 text-sm text-purple-700 dark:text-purple-300">
-                         Produk ini menggunakan bahan baku. Stok di setiap cabang dihitung secara otomatis berdasarkan ketersediaan bahan baku. Silakan atur stok bahan baku di halaman <a href="{{ route('materials.index') }}" class="underline font-medium hover:text-purple-800">Bahan</a>.
-                     </p>
-                     
-                     <!-- Komposisi Detail -->
-                     <div class="mt-4">
-                         <h4 class="text-sm font-semibold text-purple-800 dark:text-purple-200 mb-2">Komposisi Bahan (Takaran per unit)</h4>
-                         <div class="space-y-2">
-                             @foreach($product->materials as $material)
-                             <div class="flex items-center justify-between bg-white dark:bg-gray-800 px-3 py-2 rounded border border-purple-200 dark:border-purple-700">
-                                 <span class="text-sm text-gray-900 dark:text-white">{{ $material->name }}</span>
-                                 <span class="text-sm font-medium text-purple-700 dark:text-purple-300">{{ $material->pivot->quantity }} {{ $material->unit }}</span>
-                             </div>
-                             @endforeach
-                         </div>
-                     </div>
+          <!-- Product dengan bahan baku - stok dihitung otomatis -->
+          <div class="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-6">
+              <div class="flex items-start">
+                  <div class="flex-shrink-0">
+                      <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                  </div>
+                  <div class="ml-3">
+                      <h3 class="text-sm font-semibold text-purple-800 dark:text-purple-200">Stok Dihitung Otomatis</h3>
+                      <p class="mt-1 text-sm text-purple-700 dark:text-purple-300">
+                          Produk ini menggunakan bahan baku. Stok di setiap cabang dihitung secara otomatis berdasarkan ketersediaan bahan baku. Silakan atur stok bahan baku di halaman <a href="{{ route('materials.index') }}" class="underline font-medium hover:text-purple-800">Bahan</a>.
+                      </p>
+                      
+                      <!-- Komposisi Detail -->
+                      <div class="mt-4">
+                          <h4 class="text-sm font-semibold text-purple-800 dark:text-purple-200 mb-2">Komposisi Bahan (Takaran per unit)</h4>
+                          <div class="space-y-2">
+                              @foreach($product->materials as $material)
+                              <div class="flex items-center justify-between bg-white dark:bg-gray-800 px-3 py-2 rounded border border-purple-200 dark:border-purple-700">
+                                  <span class="text-sm text-gray-900 dark:text-white">{{ $material->name }}</span>
+                                  <span class="text-sm font-medium text-purple-700 dark:text-purple-300">{{ $material->pivot->quantity }} {{ $material->unit }}</span>
+                              </div>
+                              @endforeach
+                          </div>
+                      </div>
 
-                     <!-- Stok per cabang (hanya tampilan) -->
-                     <div class="mt-6">
-                         <h4 class="text-sm font-semibold text-purple-800 dark:text-purple-200 mb-3">Stok per Cabang (Dihitung Otomatis)</h4>
-                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                             @foreach($branches as $branch)
-                                 @php
-                                     $calculatedStock = $product->calculateStockFromMaterials($branch->id);
-                                 @endphp
-                             <div class="bg-white dark:bg-gray-800 px-4 py-3 rounded border border-purple-200 dark:border-purple-700">
-                                 <div class="flex items-center justify-between">
-                                     <span class="text-sm text-gray-900 dark:text-white">{{ $branch->name }}</span>
-                                     <span class="text-lg font-bold {{ $calculatedStock <= 0 ? 'text-red-600' : 'text-green-600' }}">
-                                         {{ intval($calculatedStock) }} unit
-                                     </span>
-                                 </div>
-                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                     Terakhir dihitung: {{ now()->format('d/m/Y H:i') }}
-                                 </p>
-                             </div>
-                             @endforeach
-                         </div>
-                     </div>
-                 </div>
-             </div>
-         </div>
+                      <!-- Stok per cabang (hanya tampilan) -->
+                      <div class="mt-6">
+                          <h4 class="text-sm font-semibold text-purple-800 dark:text-purple-200 mb-3">Stok per Cabang (Dihitung Otomatis)</h4>
+                          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              @foreach($branches as $branch)
+                                  @php
+                                      $calculatedStock = $product->calculateStockFromMaterials($branch->id);
+                                  @endphp
+                              <div class="bg-white dark:bg-gray-800 px-4 py-3 rounded border border-purple-200 dark:border-purple-700">
+                                  <div class="flex items-center justify-between">
+                                      <span class="text-sm text-gray-900 dark:text-white">{{ $branch->name }}</span>
+                                      <span class="text-lg font-bold {{ $calculatedStock <= 0 ? 'text-red-600' : 'text-green-600' }}">
+                                          {{ intval($calculatedStock) }} unit
+                                      </span>
+                                  </div>
+                                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                      Terakhir dihitung: {{ now()->format('d/m/Y H:i') }}
+                                  </p>
+                              </div>
+                              @endforeach
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+          
+          <div class="mt-6 flex justify-end gap-3 border-t border-gray-200 dark:border-gray-700 pt-6">
+              @if(request()->has('new'))
+                  <form action="{{ route('products.destroy', $product) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin membatalkan penambahan produk ini? Produk yang baru ditambahkan akan dihapus.')">
+                      @csrf
+                      @method('DELETE')
+                      <button type="submit" class="px-6 py-2 border border-red-300 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-200 active:scale-95 font-medium">
+                          Batalkan
+                      </button>
+                  </form>
+              @else
+                  <a href="{{ route('products.index') }}" class="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 active:scale-95 font-medium">
+                      Batalkan
+                  </a>
+              @endif
+              <a href="{{ route('products.index') }}" class="px-6 py-2 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg font-medium hover:from-teal-600 hover:to-cyan-700 transition-all duration-200 hover:shadow-md active:scale-95 flex items-center justify-center">
+                  Simpan
+              </a>
+          </div>
          @else
          <form action="{{ route('products.branch-stock.bulk', $product) }}" method="POST">
              @csrf
@@ -139,15 +158,28 @@
                  </table>
              </div>
 
-             <div class="mt-6 flex justify-end gap-3">
-                 <a href="{{ route('products.index') }}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-                     Batal
-                 </a>
-                 <button type="submit" class="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600">
-                     Simpan Semua
+             <div class="mt-6 flex justify-end gap-3 border-t border-gray-200 dark:border-gray-700 pt-6">
+                 @if(request()->has('new'))
+                     <button type="button" onclick="if(confirm('Apakah Anda yakin ingin membatalkan penambahan produk ini? Produk yang baru ditambahkan akan dihapus.')) document.getElementById('delete-new-product-form').submit();" class="px-6 py-2 border border-red-300 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-200 active:scale-95 font-medium">
+                         Batalkan
+                     </button>
+                 @else
+                     <a href="{{ route('products.index') }}" class="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 active:scale-95 font-medium">
+                         Batalkan
+                     </a>
+                 @endif
+                 <button type="submit" class="px-6 py-2 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg font-medium hover:from-teal-600 hover:to-cyan-700 transition-all duration-200 hover:shadow-md active:scale-95">
+                     Simpan
                  </button>
              </div>
          </form>
+
+         @if(request()->has('new'))
+             <form id="delete-new-product-form" action="{{ route('products.destroy', $product) }}" method="POST" class="hidden">
+                 @csrf
+                 @method('DELETE')
+             </form>
+         @endif
          @endif
      </div>
 </div>

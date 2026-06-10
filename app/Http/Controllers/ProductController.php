@@ -171,9 +171,10 @@ class ProductController extends Controller
                 }
             }
             $product->materials()->sync($syncData);
+            $product->updateStocksFromMaterials();
         }
 
-        return redirect()->route('products.branch-stock', $product)->with('success', 'Produk berhasil ditambahkan! Silakan isi stok cabin.');
+        return redirect()->route('products.branch-stock', [$product, 'new' => 1])->with('success', 'Produk berhasil ditambahkan! Silakan isi stok cabin.');
     }
 
     public function show(Product $product)
@@ -324,6 +325,7 @@ class ProductController extends Controller
                 }
             }
             $product->materials()->sync($syncData);
+            $product->updateStocksFromMaterials();
         } else {
             $product->materials()->detach();
         }

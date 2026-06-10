@@ -84,7 +84,7 @@ class MaterialController extends Controller
 
         $material = Material::create($request->all());
 
-        return redirect()->route('materials.branch-stock', $material)->with('success', 'Bahan berhasil ditambahkan! Silakan isi stok cabin.');
+        return redirect()->route('materials.branch-stock', [$material, 'new' => 1])->with('success', 'Bahan berhasil ditambahkan! Silakan isi stok cabin.');
     }
 
     public function show(Material $material)

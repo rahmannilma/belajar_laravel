@@ -110,6 +110,23 @@ class Product extends Model
         }
     }
 
+    public function updateStocksFromMaterials(): void
+    {
+        if (! $this->hasMaterials()) {
+            return;
+        }
+
+        $branchIds = \App\Models\Branch::pluck('id')->toArray();
+
+        foreach ($branchIds as $branchId) {
+            $stock = $this->calculateStockFromMaterials($branchId);
+            $this->branchStocks()->updateOrCreate(
+                ['branch_id' => $branchId],
+                ['stock' => $stock]
+            );
+        }
+    }
+
     public function calculateStockFromMaterials(int $branchId): ?float
     {
         $materialIds = $this->materials()->pluck('materials.id')->toArray();
