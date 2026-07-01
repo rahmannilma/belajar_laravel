@@ -682,9 +682,12 @@ function posSystem() {
                     
                     // Cetak otomatis jika RawBT terdeteksi aktif (hanya 1 kali)
                     const isRawbtAvailable = await this.checkRawbtConnection();
+                    const rawbtUrl = `{{ url('/kasir/rawbt') }}/${this.lastTransaction.id}`;
                     if (isRawbtAvailable) {
-                        const rawbtUrl = `{{ url('/kasir/rawbt') }}/${this.lastTransaction.id}`;
                         this.printRawbt(rawbtUrl);
+                    } else if (/Android/i.test(navigator.userAgent)) {
+                        // Jika WebSocket gagal/diblokir (misal karena HTTPS online), gunakan fallback Android Intent
+                        this.printRawbtIntent(rawbtUrl);
                     }
 
                 } else {
@@ -707,9 +710,12 @@ function posSystem() {
             if (!this.lastTransaction) return;
 
             const isRawbtAvailable = await this.checkRawbtConnection();
+            const rawbtUrl = `{{ url('/kasir/rawbt') }}/${this.lastTransaction.id}`;
             if (isRawbtAvailable) {
-                const rawbtUrl = `{{ url('/kasir/rawbt') }}/${this.lastTransaction.id}`;
                 this.printRawbt(rawbtUrl);
+            } else if (/Android/i.test(navigator.userAgent)) {
+                // Gunakan fallback Android Intent untuk perangkat Android jika WebSocket diblokir
+                this.printRawbtIntent(rawbtUrl);
             } else {
                 const printUrl = `{{ url('/kasir/print') }}/${this.lastTransaction.id}`;
                 window.open(printUrl, '_blank', 'width=450,height=600,scrollbars=yes');
@@ -718,35 +724,39 @@ function posSystem() {
 
         checkRawbtConnection() {
             return new Promise((resolve) => {
-                const socket = new WebSocket("ws://127.0.0.1:40213/");
-                let resolved = false;
+                try {
+                    const socket = new WebSocket("ws://127.0.0.1:40213/");
+                    let resolved = false;
 
-                const timeout = setTimeout(() => {
-                    if (!resolved) {
-                        resolved = true;
-                        try {
-                            socket.close();
-                        } catch (e) {}
-                        resolve(false);
-                    }
-                }, 400);
+                    const timeout = setTimeout(() => {
+                        if (!resolved) {
+                            resolved = true;
+                            try {
+                                socket.close();
+                            } catch (e) {}
+                            resolve(false);
+                        }
+                    }, 400);
 
-                socket.onopen = () => {
-                    if (!resolved) {
-                        resolved = true;
-                        try {
-                            socket.close();
-                        } catch (e) {}
-                        resolve(true);
-                    }
-                };
+                    socket.onopen = () => {
+                        if (!resolved) {
+                            resolved = true;
+                            try {
+                                socket.close();
+                            } catch (e) {}
+                            resolve(true);
+                        }
+                    };
 
-                socket.onerror = () => {
-                    if (!resolved) {
-                        resolved = true;
-                        resolve(false);
-                    }
-                };
+                    socket.onerror = () => {
+                        if (!resolved) {
+                            resolved = true;
+                            resolve(false);
+                        }
+                    };
+                } catch (e) {
+                    resolve(false);
+                }
             });
         },
 
@@ -793,6 +803,33 @@ function posSystem() {
                 };
             } catch (error) {
                 console.error('RawBT error:', error);
+                alert(`Gagal mengirim struk ke RawBT: ${error.message}`);
+            }
+        },
+
+        async printRawbtIntent(url) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.message || `RawBT response error (${response.status})`);
+                }
+
+                const data = await response.json();
+                if (!data.success || !data.base64) {
+                    throw new Error(data.message || 'Data print tidak valid.');
+                }
+
+                const intentUrl = `intent:base64,${data.base64}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
+                window.location.href = intentUrl;
+            } catch (error) {
+                console.error('RawBT Intent error:', error);
                 alert(`Gagal mengirim struk ke RawBT: ${error.message}`);
             }
         }
