@@ -264,6 +264,15 @@
                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Masukkan nama...">
             </div>
 
+            <!-- Auto Print Toggle -->
+            <div class="px-4 pb-4 flex items-center justify-between">
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Cetak Struk Otomatis</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" x-model="autoPrint" @change="localStorage.setItem('auto_print', autoPrint)" class="sr-only peer">
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-500"></div>
+                </label>
+            </div>
+
 
 
             <!-- Actions -->
@@ -427,6 +436,7 @@ function posSystem() {
         isProcessing: false,
         countdown: 30,
         countdownInterval: null,
+        autoPrint: localStorage.getItem('auto_print') === 'true',
 
         init() {
             this.filteredProducts = this.products;
@@ -680,14 +690,16 @@ function posSystem() {
                     this.calculateTotals();
                     await this.reloadProducts();
                     
-                    // Cetak otomatis jika RawBT terdeteksi aktif (hanya 1 kali)
-                    const isRawbtAvailable = await this.checkRawbtConnection();
-                    const rawbtUrl = `{{ url('/kasir/rawbt') }}/${this.lastTransaction.id}`;
-                    if (isRawbtAvailable) {
-                        this.printRawbt(rawbtUrl);
-                    } else if (/Android/i.test(navigator.userAgent)) {
-                        // Jika WebSocket gagal/diblokir (misal karena HTTPS online), gunakan fallback Android Intent
-                        this.printRawbtIntent(rawbtUrl);
+                    // Cetak otomatis jika aktif dan RawBT terdeteksi aktif (hanya 1 kali)
+                    if (this.autoPrint) {
+                        const isRawbtAvailable = await this.checkRawbtConnection();
+                        const rawbtUrl = `{{ url('/kasir/rawbt') }}/${this.lastTransaction.id}`;
+                        if (isRawbtAvailable) {
+                            this.printRawbt(rawbtUrl);
+                        } else if (/Android/i.test(navigator.userAgent)) {
+                            // Jika WebSocket gagal/diblokir (misal karena HTTPS online), gunakan fallback Android Intent
+                            this.printRawbtIntent(rawbtUrl);
+                        }
                     }
 
                 } else {
