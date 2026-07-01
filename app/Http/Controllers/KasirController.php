@@ -463,10 +463,10 @@ class KasirController extends Controller
             $connector = new DummyPrintConnector();
             $printer = new Printer($connector);
             $this->writeReceiptData($printer, $sale);
+            $rawBytes = $connector->getData();
             $printer->close();
             $printer = null;
 
-            $rawBytes = $connector->getData();
             $base64 = base64_encode($rawBytes);
 
             return response()->json([
