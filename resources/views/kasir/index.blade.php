@@ -264,6 +264,8 @@
                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Masukkan nama...">
             </div>
 
+
+
             <!-- Actions -->
             <div class="px-4 pb-4 space-y-2">
                 <button @click="processTransaction()" :disabled="cartItems.length === 0 || isProcessing"
@@ -677,6 +679,14 @@ function posSystem() {
                     this.paymentAmountDisplay = '';
                     this.calculateTotals();
                     await this.reloadProducts();
+                    
+                    // Cetak otomatis jika RawBT terdeteksi aktif (hanya 1 kali)
+                    const isRawbtAvailable = await this.checkRawbtConnection();
+                    if (isRawbtAvailable) {
+                        const rawbtUrl = `{{ url('/kasir/rawbt') }}/${this.lastTransaction.id}`;
+                        this.printRawbt(rawbtUrl);
+                    }
+
                 } else {
                     alert(data.message || 'Terjadi kesalahan!');
                 }
@@ -693,8 +703,98 @@ function posSystem() {
             this.showReceipt = false;
         },
 
-        printReceipt() {
-            window.print();
+        async printReceipt() {
+            if (!this.lastTransaction) return;
+
+            const isRawbtAvailable = await this.checkRawbtConnection();
+            if (isRawbtAvailable) {
+                const rawbtUrl = `{{ url('/kasir/rawbt') }}/${this.lastTransaction.id}`;
+                this.printRawbt(rawbtUrl);
+            } else {
+                const printUrl = `{{ url('/kasir/print') }}/${this.lastTransaction.id}`;
+                window.open(printUrl, '_blank', 'width=450,height=600,scrollbars=yes');
+            }
+        },
+
+        checkRawbtConnection() {
+            return new Promise((resolve) => {
+                const socket = new WebSocket("ws://127.0.0.1:40213/");
+                let resolved = false;
+
+                const timeout = setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        try {
+                            socket.close();
+                        } catch (e) {}
+                        resolve(false);
+                    }
+                }, 400);
+
+                socket.onopen = () => {
+                    if (!resolved) {
+                        resolved = true;
+                        try {
+                            socket.close();
+                        } catch (e) {}
+                        resolve(true);
+                    }
+                };
+
+                socket.onerror = () => {
+                    if (!resolved) {
+                        resolved = true;
+                        resolve(false);
+                    }
+                };
+            });
+        },
+
+        async printRawbt(url) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.message || `RawBT response error (${response.status})`);
+                }
+
+                const data = await response.json();
+                if (!data.success || !data.base64) {
+                    throw new Error(data.message || 'Data print tidak valid.');
+                }
+
+                // Konversi base64 ke ArrayBuffer karena RawBT WebSocket menerima data biner (ESC/POS)
+                const binaryString = window.atob(data.base64);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                const arrayBuffer = bytes.buffer;
+
+                // Kirim via WebSocket ke server lokal RawBT
+                const socket = new WebSocket("ws://127.0.0.1:40213/");
+                socket.binaryType = "arraybuffer";
+
+                socket.onerror = (error) => {
+                    console.error('WebSocket RawBT error:', error);
+                    alert('Gagal terhubung ke aplikasi RawBT. Pastikan aplikasi RawBT (atau Server for RawBT) aktif di latar belakang perangkat ini.');
+                };
+
+                socket.onopen = () => {
+                    socket.send(arrayBuffer);
+                    socket.close(1000, "Cetak selesai");
+                };
+            } catch (error) {
+                console.error('RawBT error:', error);
+                alert(`Gagal mengirim struk ke RawBT: ${error.message}`);
+            }
         }
     };
 }

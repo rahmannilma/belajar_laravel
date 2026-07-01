@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Mike42\Escpos\Printer;
+use Mike42\Escpos\PrintConnectors\DummyPrintConnector;
 
 class KasirController extends Controller
 {
@@ -450,5 +452,124 @@ class KasirController extends Controller
             ->values();
 
         return response()->json($products);
+    }
+
+    public function rawbtReceipt(Sale $sale)
+    {
+        $sale->load('items', 'user', 'branch');
+        $printer = null;
+
+        try {
+            $connector = new DummyPrintConnector();
+            $printer = new Printer($connector);
+            $this->writeReceiptData($printer, $sale);
+            $printer->close();
+            $printer = null;
+
+            $rawBytes = $connector->getData();
+            $base64 = base64_encode($rawBytes);
+
+            return response()->json([
+                'success' => true,
+                'base64' => $base64
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Gagal membuat struk RawBT: '.$e->getMessage());
+
+            if ($printer) {
+                try {
+                    $printer->close();
+                } catch (\Exception $closeError) {
+                    Log::error('Gagal menutup koneksi RawBT: '.$closeError->getMessage());
+                }
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal membuat data RawBT: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    private function writeReceiptData($printer, $sale)
+    {
+        // Header Toko
+        $printer->setJustification(Printer::JUSTIFY_CENTER);
+        $printer->selectPrintMode(Printer::MODE_DOUBLE_WIDTH);
+        $printer->text(($sale->branch?->name ?? 'SMART POS') . "\n");
+        $printer->selectPrintMode(); // reset
+        
+        if ($sale->branch) {
+            if ($sale->branch->address) {
+                $printer->text($sale->branch->address . "\n");
+            }
+            if ($sale->branch->phone) {
+                $printer->text("Telp: " . $sale->branch->phone . "\n");
+            }
+            if ($sale->branch->city) {
+                $printer->text($sale->branch->city . "\n");
+            }
+        }
+        $printer->text("--------------------------------\n");
+
+        // Info Transaksi
+        $printer->setJustification(Printer::JUSTIFY_LEFT);
+        $printer->text("Invoice : " . $sale->invoice_number . "\n");
+        $printer->text("Tanggal : " . $sale->sale_date->format('d/m/Y H:i') . "\n");
+        $printer->text("Kasir   : " . $sale->user->name . "\n");
+        $printer->text("Plg     : " . ($sale->customer_name ?? 'Umum') . "\n");
+        $printer->text("--------------------------------\n");
+
+        // Daftar Produk
+        foreach ($sale->items as $item) {
+            $printer->text($item->product_name . "\n");
+            
+            // Format harga kanan kiri (lebar kertas thermal standar 32 karakter)
+            $qtyPrice = $item->quantity . " x Rp " . number_format($item->price, 0, ',', '.');
+            $subtotal = "Rp " . number_format($item->subtotal, 0, ',', '.');
+            
+            $spaces = 32 - strlen($qtyPrice) - strlen($subtotal);
+            $spaces = $spaces > 0 ? str_repeat(" ", $spaces) : " ";
+            
+            $printer->text($qtyPrice . $spaces . $subtotal . "\n");
+        }
+        $printer->text("--------------------------------\n");
+
+        // Subtotal, Diskon, Pajak, Total
+        $this->printTotalRow($printer, "Subtotal", $sale->subtotal);
+        if ($sale->discount_amount > 0) {
+            $this->printTotalRow($printer, "Diskon (" . number_format($sale->discount_percent, 0) . "%)", -$sale->discount_amount);
+        }
+        if ($sale->tax_amount > 0) {
+            $this->printTotalRow($printer, "Pajak (" . number_format($sale->tax_percent, 0) . "%)", $sale->tax_amount);
+        }
+        $printer->text("--------------------------------\n");
+        $this->printTotalRow($printer, "TOTAL", $sale->total_amount, true);
+        $this->printTotalRow($printer, "Bayar", $sale->payment_method_label);
+        
+        $printer->text("\n");
+        $printer->setJustification(Printer::JUSTIFY_CENTER);
+        $printer->text("Terima kasih atas kunjungan Anda!\n");
+        $printer->text("Barang yang sudah dibeli\n");
+        $printer->text("tidak dapat dikembalikan\n");
+        $printer->text("\n\n\n");
+        $printer->cut();
+    }
+
+    private function printTotalRow($printer, $label, $amount, $isBold = false)
+    {
+        if ($isBold) {
+            $printer->selectPrintMode(Printer::MODE_DOUBLE_WIDTH);
+        }
+        
+        $amountStr = is_numeric($amount) ? "Rp " . number_format((float)$amount, 0, ',', '.') : (string)$amount;
+        $spaces = 32 - strlen($label) - strlen($amountStr);
+        $spaces = $spaces > 0 ? str_repeat(" ", $spaces) : " ";
+        
+        $printer->text($label . $spaces . $amountStr . "\n");
+        
+        if ($isBold) {
+            $printer->selectPrintMode(); // Reset to normal
+        }
     }
 }

@@ -84,6 +84,8 @@ Route::middleware('auth')->group(function () {
         // Sales for viewing (owner and cashier)
         Route::resource('sales', SaleController::class)->only(['index', 'show']);
         Route::post('/sales/{sale}/cancel', [SaleController::class, 'cancel'])->name('sales.cancel');
+        Route::get('/kasir/print/{sale}', [KasirController::class, 'printReceipt'])->name('kasir.print');
+        Route::get('/kasir/rawbt/{sale}', [KasirController::class, 'rawbtReceipt'])->name('kasir.rawbt');
     });
 
     // Sales reports and export (owner only)
@@ -101,7 +103,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/kasir', [KasirController::class, 'index'])->name('kasir');
         Route::post('/kasir', [KasirController::class, 'store']);
         Route::get('/kasir/receipt/{sale}', [KasirController::class, 'receipt'])->name('kasir.receipt');
-        Route::get('/kasir/print/{sale}', [KasirController::class, 'printReceipt'])->name('kasir.print');
 
         // Kasir API
         Route::prefix('api')->group(function () {
