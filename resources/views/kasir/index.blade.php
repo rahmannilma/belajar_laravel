@@ -436,7 +436,7 @@ function posSystem() {
         isProcessing: false,
         countdown: 30,
         countdownInterval: null,
-        autoPrint: localStorage.getItem('auto_print') !== 'false',
+        autoPrint: localStorage.getItem('auto_print') === 'true',
 
         init() {
             this.filteredProducts = this.products;
