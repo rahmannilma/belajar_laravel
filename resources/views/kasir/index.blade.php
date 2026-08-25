@@ -96,7 +96,6 @@
                     <div class="mt-2 flex items-baseline gap-1">
                         <span class="text-teal-600 dark:text-teal-400 font-bold" x-text="'Rp ' + formatNumber(product.selling_price)"></span>
                     </div>
-                    <p class="text-xs text-gray-400 mt-1">Stok: <span x-text="product.display_stock"></span></p>
                 </button>
             </template>
         </div>
