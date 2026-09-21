@@ -66,6 +66,13 @@
                     <option value="available" {{ request('stock_status') == 'available' ? 'selected' : '' }}>Tersedia</option>
                 </select>
             </div>
+            <div class="w-36">
+                <select name="status" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                    <option value="">Semua Status</option>
+                    <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Aktif</option>
+                    <option value="inactive" {{ request('status') === 'inactive' ? 'selected' : '' }}>Nonaktif</option>
+                </select>
+            </div>
             <button type="submit" class="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors">
                 Filter
             </button>
@@ -105,9 +112,20 @@
                                  </div>
                                  <div>
                                      <p class="font-medium text-gray-900 dark:text-white">{{ $product->name }}</p>
-                                     @if($product->is_low_stock)
-                                     <p class="text-xs text-orange-500">⚠️ Stok rendah</p>
-                                     @endif
+                                     <div class="flex items-center gap-2 mt-0.5">
+                                         @if($product->is_active)
+                                         <span class="inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                             Aktif
+                                         </span>
+                                         @else
+                                         <span class="inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                             Nonaktif
+                                         </span>
+                                         @endif
+                                         @if($product->is_low_stock)
+                                         <span class="text-xs text-orange-500">⚠️ Stok rendah</span>
+                                         @endif
+                                     </div>
                                  </div>
                              </div>
                          </td>
@@ -134,13 +152,13 @@
                         </td>
                         <td class="px-6 py-4 text-right">
                             <div class="flex items-center justify-end gap-2">
-                                <a href="{{ route('products.show', $product) }}" class="p-2 text-gray-400 hover:text-teal-500 transition-colors">
+                                <a href="{{ route('products.show', $product) }}" class="p-2 text-gray-400 hover:text-teal-500 transition-colors" title="Lihat Detail">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                     </svg>
                                 </a>
-                                <a href="{{ route('products.edit', $product) }}" class="p-2 text-gray-400 hover:text-blue-500 transition-colors">
+                                <a href="{{ route('products.edit', $product) }}" class="p-2 text-gray-400 hover:text-blue-500 transition-colors" title="Edit Produk">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                     </svg>
@@ -150,15 +168,41 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                                     </svg>
                                 </a>
-                                <form action="{{ route('products.destroy', $product) }}" method="POST" class="inline" onsubmit="return confirm('Yakin ingin menghapus produk ini?')">
+
+                                <!-- Toggle Active/Nonaktif Button -->
+                                <form action="{{ route('products.toggle-active', $product) }}" method="POST" class="inline">
+                                    @csrf
+                                    <button type="submit" class="p-2 {{ $product->is_active ? 'text-emerald-500 hover:text-emerald-600' : 'text-gray-400 hover:text-gray-600' }} transition-colors" title="{{ $product->is_active ? 'Status: AKTIF (Klik untuk nonaktifkan)' : 'Status: NONAKTIF (Klik untuk aktifkan)' }}">
+                                        @if($product->is_active)
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        @else
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                                        </svg>
+                                        @endif
+                                    </button>
+                                </form>
+
+                                <!-- Safe Delete Button: Hanya bisa dihapus jika sudah NONAKTIF -->
+                                @if($product->is_active)
+                                <button type="button" onclick="alert('Produk masih dalam status AKTIF!\n\nDemi keamanan agar tidak ada salah tekan, silakan nonaktifkan produk terlebih dahulu sebelum menghapusnya.');" class="p-2 text-gray-300 dark:text-gray-600 hover:text-gray-400 transition-colors" title="Nonaktifkan produk terlebih dahulu sebelum menghapus">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                                @else
+                                <form action="{{ route('products.destroy', $product) }}" method="POST" class="inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus produk nonaktif ini?\n\nProduk akan dihapus dari daftar, namun riwayat transaksi penjualan sebelumnya tetap aman.')">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="p-2 text-gray-400 hover:text-red-500 transition-colors">
+                                    <button type="submit" class="p-2 text-red-500 hover:text-red-700 transition-colors" title="Hapus Produk Nonaktif">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                         </svg>
                                     </button>
                                 </form>
+                                @endif
                             </div>
                         </td>
                     </tr>

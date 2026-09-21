@@ -53,6 +53,7 @@ Route::middleware('auth')->group(function () {
 
     // Products (only owner can manage)
     Route::resource('products', ProductController::class);
+    Route::post('/products/{product}/toggle-active', [ProductController::class, 'toggleActive'])->name('products.toggle-active');
     Route::post('/products/{product}/adjust-stock', [ProductController::class, 'stockAdjustment'])->name('products.adjust-stock');
     Route::get('/products/{product}/branch-stock', [ProductController::class, 'branchStock'])->name('products.branch-stock');
     Route::post('/products/{product}/branch-stock', [ProductController::class, 'updateBranchStock'])->name('products.branch-stock.update');

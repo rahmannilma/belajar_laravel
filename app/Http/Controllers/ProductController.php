@@ -73,6 +73,13 @@ class ProductController extends Controller
             ->when($request->has('low_stock'), function ($query) {
                 $query->lowStock();
             })
+            ->when($request->filled('status'), function ($query) use ($request) {
+                if ($request->status === 'active') {
+                    $query->where('is_active', true);
+                } elseif ($request->status === 'inactive') {
+                    $query->where('is_active', false);
+                }
+            })
             ->orderBy('name')
             ->paginate(15);
 
@@ -311,6 +318,7 @@ class ProductController extends Controller
         }
 
         $data = $request->except('image');
+        $data['is_active'] = $request->boolean('is_active');
 
         if ($request->hasFile('image')) {
             // Delete old image if exists
@@ -361,9 +369,9 @@ class ProductController extends Controller
             abort(403, 'Anda tidak memiliki akses ke produk ini.');
         }
 
-        // Check if product has sale items
-        if ($product->saleItems()->exists()) {
-            return back()->with('error', 'Produk tidak dapat dihapus karena memiliki riwayat penjualan!');
+        // Proteksi Keamanan: Wajib dinonaktifkan terlebih dahulu agar tidak ada salah tekan
+        if ($product->is_active) {
+            return back()->with('error', 'Produk masih dalam status AKTIF! Demi keamanan agar tidak salah tekan, silakan nonaktifkan produk terlebih dahulu sebelum menghapusnya.');
         }
 
         // Delete image if exists
@@ -371,9 +379,26 @@ class ProductController extends Controller
             Storage::disk('public')->delete($product->image);
         }
 
+        // Soft delete (riwayat transaksi lama tetap aman dan terlihat di laporan)
         $product->delete();
 
-        return redirect()->route('products.index')->with('success', 'Produk berhasil dihapus!');
+        return redirect()->route('products.index')->with('success', 'Produk nonaktif berhasil dihapus! Riwayat transaksi penjualan sebelumnya tetap aman tersimpan.');
+    }
+
+    public function toggleActive(Product $product)
+    {
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+        $hasAccess = $product->category()->whereIn('branch_id', $accessibleBranchIds)->exists();
+
+        if (! $hasAccess) {
+            abort(403, 'Anda tidak memiliki akses ke produk ini.');
+        }
+
+        $product->update(['is_active' => ! $product->is_active]);
+
+        $status = $product->is_active ? 'diaktifkan' : 'dinonaktifkan';
+
+        return back()->with('success', "Status produk {$product->name} berhasil {$status}!");
     }
 
     public function printBarcode(Product $product)
