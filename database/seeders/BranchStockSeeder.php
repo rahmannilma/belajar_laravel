@@ -25,8 +25,13 @@ class BranchStockSeeder extends Seeder
 
         $branches = Branch::where('is_active', true)->get();
 
-        foreach (Product::all() as $product) {
-            foreach ($branches as $branch) {
+        foreach (Product::with('category.branch')->get() as $product) {
+            $ownerId = $product->category?->branch?->owner_id;
+            $productBranches = $ownerId 
+                ? $branches->where('owner_id', $ownerId)
+                : ($product->category?->branch_id ? $branches->where('id', $product->category->branch_id) : $branches);
+
+            foreach ($productBranches as $branch) {
                 $stock = $product->stock > 0
                     ? rand(ceil($product->stock * 0.3), $product->stock)
                     : 0;

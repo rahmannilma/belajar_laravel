@@ -86,24 +86,33 @@ class Product extends Model
     public static function updateStocksFromMaterial(Material $material, ?int $branchId = null): void
     {
         // Find all products that use this material
-        $products = self::whereHas('materials', function ($q) use ($material) {
+        $products = self::with('category.branch')->whereHas('materials', function ($q) use ($material) {
             $q->where('material_id', $material->id);
         })->get();
 
-        // Get branch IDs - filter by material's branch owner
-        if ($branchId) {
-            $branchIds = [$branchId];
-        } else {
-            // Get branches that have this material in stock
-            $branchIds = $material->branchStocks()->pluck('branch_id')->toArray();
-        }
-
         foreach ($products as $product) {
-            foreach ($branchIds as $branchId) {
-                // Update stock for each branch
-                $stock = $product->calculateStockFromMaterials($branchId);
+            $ownerId = $product->category?->branch?->owner_id;
+
+            if ($branchId) {
+                $branch = \App\Models\Branch::find($branchId);
+                if ($branch && $ownerId && $branch->owner_id !== $ownerId) {
+                    continue;
+                }
+                $branchIds = [$branchId];
+            } else {
+                $branchQuery = $material->branchStocks();
+                if ($ownerId) {
+                    $branchQuery->whereHas('branch', function ($q) use ($ownerId) {
+                        $q->where('owner_id', $ownerId);
+                    });
+                }
+                $branchIds = $branchQuery->pluck('branch_id')->toArray();
+            }
+
+            foreach ($branchIds as $bId) {
+                $stock = $product->calculateStockFromMaterials($bId);
                 $product->branchStocks()->updateOrCreate(
-                    ['branch_id' => $branchId],
+                    ['branch_id' => $bId],
                     ['stock' => $stock]
                 );
             }
@@ -116,7 +125,16 @@ class Product extends Model
             return;
         }
 
-        $branchIds = \App\Models\Branch::pluck('id')->toArray();
+        // Only get branches belonging to this product's owner
+        $ownerId = $this->category?->branch?->owner_id;
+
+        if ($ownerId) {
+            $branchIds = \App\Models\Branch::where('owner_id', $ownerId)->pluck('id')->toArray();
+        } elseif ($this->category?->branch_id) {
+            $branchIds = [$this->category->branch_id];
+        } else {
+            $branchIds = [];
+        }
 
         foreach ($branchIds as $branchId) {
             $stock = $this->calculateStockFromMaterials($branchId);

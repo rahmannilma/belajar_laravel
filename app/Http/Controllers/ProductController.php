@@ -32,7 +32,12 @@ class ProductController extends Controller
     {
         $accessibleBranchIds = $this->getAccessibleBranchIds();
 
-        $products = Product::with('category', 'branchStocks.branch')
+        $products = Product::with([
+            'category',
+            'branchStocks' => function ($q) use ($accessibleBranchIds) {
+                $q->whereIn('branch_id', $accessibleBranchIds)->with('branch');
+            },
+        ])
             ->whereHas('category.branch', function ($q) use ($accessibleBranchIds) {
                 $q->whereIn('branches.id', $accessibleBranchIds);
             })
@@ -179,7 +184,20 @@ class ProductController extends Controller
 
     public function show(Product $product)
     {
-        $product->load('category', 'saleItems.sale');
+        $accessibleBranchIds = $this->getAccessibleBranchIds();
+
+        $hasAccess = $product->category()->whereIn('branch_id', $accessibleBranchIds)->exists();
+        if (! $hasAccess) {
+            abort(403, 'Anda tidak memiliki akses ke produk ini.');
+        }
+
+        $product->load([
+            'category',
+            'saleItems.sale',
+            'branchStocks' => function ($q) use ($accessibleBranchIds) {
+                $q->whereIn('branch_id', $accessibleBranchIds)->with('branch');
+            },
+        ]);
 
         return view('products.show', compact('product'));
     }
